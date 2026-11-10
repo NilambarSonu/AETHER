@@ -24,9 +24,22 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+
+      - name: Select Xcode 26+ SDK
+        run: |
+          echo "=== Available Xcode Installations ==="
+          ls -d /Applications/Xcode*.app || true
+          if compgen -G "/Applications/Xcode_26*.app" > /dev/null; then
+            LATEST_XCODE="$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
+            echo "Selecting macOS 26 SDK Xcode: $LATEST_XCODE..."
+            sudo xcode-select -s "$LATEST_XCODE"
+          fi
+          echo "=== Active Xcode Developer Directory ==="
+          xcode-select -p
+          xcodebuild -version || true
 
       - name: Environment Diagnostics
         run: |
@@ -34,9 +47,6 @@ jobs:
           sw_vers
           echo "=== Swift Version ==="
           swift --version
-          echo "=== Active Xcode ==="
-          xcode-select -p
-          xcodebuild -version || true
 
       - name: Resolve Swift Package Dependencies
         run: |
