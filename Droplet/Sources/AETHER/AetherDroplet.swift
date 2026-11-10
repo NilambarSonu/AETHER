@@ -141,7 +141,7 @@ public final class AetherDroplet: NSObject, HUDPresenting {
         }
     }
 
-    private func sendAcknowledgment(eventID: UUID, status: AetherOTPAcknowledgment.Status) {
+    private func sendAcknowledgment(eventID: UUID, status: AetherAcknowledgmentStatus) {
         guard let activeTransport = transport else { return }
         Task {
             if let ack = try? AetherOTPAcknowledgment(eventID: eventID, status: status) {
