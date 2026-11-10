@@ -91,8 +91,27 @@ struct IconProxyURLCase: Sendable {
         #expect(!FileManager.default.fileExists(atPath: fixture.root.path))
     }
 
-    @Test func defaultLookupUsesOneGoogleProxyRequestAndCachesTheIcon() async throws {
+    @Test func defaultRegistrationDisablesServiceIconsAndPreventsNetworkRequests() async throws {
         let fixture = try IconPrivacyFixture()
+        defer { fixture.cleanUp() }
+        var requests: [URL] = []
+        let store = IconStore(
+            defaults: fixture.defaults, folder: fixture.folder,
+            fetch: { url in
+                requests.append(url)
+                return (iconPNG, try iconResponse(url, status: 200))
+            })
+
+        #expect(!fixture.defaults.bool(forKey: Prefs.serviceIcons))
+        await store.load("example.com")
+
+        #expect(store.icon(for: "example.com") == nil)
+        #expect(requests.isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: fixture.root.path))
+    }
+
+    @Test func explicitOptInLookupUsesOneGoogleProxyRequestAndCachesTheIcon() async throws {
+        let fixture = try IconPrivacyFixture(enabled: true)
         defer { fixture.cleanUp() }
         var requests: [URL] = []
         let store = IconStore(

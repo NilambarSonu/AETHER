@@ -1,0 +1,88 @@
+import CoreServices
+import Foundation
+
+/// A thread-safe wrapper around macOS CoreServices `FSEventStream`.
+///
+/// Monitors directory paths for kernel-level file system events (e.g., SQLite WAL updates,
+/// file replacements, message database transactions) with configurable debounce latency.
+final class FSEventWatcher: @unchecked Sendable {
+    private var stream: FSEventStreamRef?
+    private let paths: [String]
+    private let queue: DispatchQueue
+    private let latency: TimeInterval
+    private let onChange: @Sendable () -> Void
+    private let lock = NSLock()
+    private var isRunning = false
+
+    init(paths: [String], latency: TimeInterval = 0.2, queue: DispatchQueue, onChange: @escaping @Sendable () -> Void) {
+        self.paths = paths
+        self.latency = latency
+        self.queue = queue
+        self.onChange = onChange
+    }
+
+    deinit {
+        stop()
+    }
+
+    /// Starts the FSEvents stream on the specified dispatch queue.
+    /// Returns true if the stream was successfully initialized and started; false otherwise.
+    func start() -> Bool {
+        lock.withLock {
+            guard !isRunning else { return true }
+            let callback: FSEventStreamCallback = { (stream, clientCallBackInfo, numEvents, eventPaths, eventFlags, eventIds) in
+                guard let info = clientCallBackInfo else { return }
+                let watcher = Unmanaged<FSEventWatcher>.fromOpaque(info).takeUnretainedValue()
+                watcher.onChange()
+            }
+
+            var context = FSEventStreamContext(
+                version: 0,
+                info: Unmanaged.passUnretained(self).toOpaque(),
+                retain: nil,
+                release: nil,
+                copyDescription: nil)
+
+            let cfPaths = paths as CFArray
+            let flags = UInt32(kFSEventStreamCreateFlagUseCFTypes | kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagNoDefer)
+
+            guard let s = FSEventStreamCreate(
+                kCFAllocatorDefault,
+                callback,
+                &context,
+                cfPaths,
+                FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
+                latency,
+                flags)
+            else { return false }
+
+            FSEventStreamSetDispatchQueue(s, queue)
+            guard FSEventStreamStart(s) else {
+                FSEventStreamInvalidate(s)
+                FSEventStreamRelease(s)
+                return false
+            }
+
+            self.stream = s
+            self.isRunning = true
+            return true
+        }
+    }
+
+    /// Stops and invalidates the FSEvents stream.
+    func stop() {
+        let streamToRelease: FSEventStreamRef? = lock.withLock {
+            guard isRunning, let s = stream else { return nil }
+            isRunning = false
+            stream = nil
+            return s
+        }
+
+        if let s = streamToRelease {
+            FSEventStreamStop(s)
+            FSEventStreamInvalidate(s)
+            FSEventStreamRelease(s)
+        }
+    }
+}
+

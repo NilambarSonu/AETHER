@@ -71,3 +71,30 @@ func readsValidity(text: String, seconds: Int?) {
     #expect(CodeExtractor.originDomain(in: "Use code: 152-828.\n\n@revolut.com #152828") == "revolut.com")
     #expect(CodeExtractor.originDomain(in: "816902 is your Instagram code. #ig") == nil)
 }
+
+/// Zero-width characters (ZWSP, ZWNJ, ZWJ, BOM, soft hyphen) must not prevent detection.
+@Test func handlesZeroWidthCharactersAndInvisibleMarks() {
+    let zwsp = "Your verification code is 4\u{200B}8\u{200B}2\u{200B}9\u{200B}1\u{200B}3"
+    #expect(CodeExtractor.code(in: zwsp) == "482913")
+
+    let softHyphen = "Your security code is 7\u{00AD}1\u{00AD}8\u{00AD}2\u{00AD}9\u{00AD}4"
+    #expect(CodeExtractor.code(in: softHyphen) == "718294")
+
+    let bom = "Your login code: \u{FEFF}951820"
+    #expect(CodeExtractor.code(in: bom) == "951820")
+}
+
+/// Unicode decimal digits from non-Latin scripts (Arabic-Indic, Persian, Devanagari) are normalized to ASCII.
+@Test func normalizesNonLatinUnicodeNumerals() {
+    // Arabic-Indic: ٤٨٢٩١٣ -> 482913
+    let arabic = "رمز التحقق الخاص بك هو ٤٨٢٩١٣"
+    #expect(CodeExtractor.code(in: arabic) == "482913")
+
+    // Eastern Arabic / Persian: ۴۸۲۹۱۳ -> 482913
+    let persian = "کد تایید شما ۴۸۲۹۱۳ است"
+    #expect(CodeExtractor.code(in: persian) == "482913")
+
+    // Devanagari: ४८२९१३ -> 482913
+    let devanagari = "आपका सत्यापन कोड ४८२९१३ है"
+    #expect(CodeExtractor.code(in: devanagari) == "482913")
+}

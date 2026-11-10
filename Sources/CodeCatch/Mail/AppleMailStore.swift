@@ -10,6 +10,7 @@ final class AppleMailStore: LocalStore {
     static let bodyWait: TimeInterval = 60
 
     let name = "Apple Mail"
+    var watchDirectory: String? { (version ?? root).path }
     private(set) var position: Int64 = 0
     private let root: URL
     private var version: URL?

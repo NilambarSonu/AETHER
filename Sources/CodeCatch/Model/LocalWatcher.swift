@@ -9,6 +9,8 @@ protocol LocalStore: AnyObject {
     var position: Int64 { get }
     /// Where a new store can carry on from; nil for one that always reads its newest again.
     var readPosition: ReadPosition? { get }
+    /// The directory containing the database and its WAL files, for event-driven monitoring.
+    var watchDirectory: String? { get }
     /// Opens the store for messages from `since` on; returns what is in the way when it can't.
     func open(since: Date) -> String?
     func newMessages() throws -> [IncomingMessage]
@@ -17,13 +19,16 @@ protocol LocalStore: AnyObject {
 
 extension LocalStore {
     var readPosition: ReadPosition? { nil }
+    var watchDirectory: String? { nil }
 }
 
-/// Polls a local store (read-only) once a second for new incoming messages.
+/// Watches a local store for new incoming messages using kernel FSEvents where available,
+/// with automatic fallback to polling when event streams are unavailable.
 final class LocalWatcher {
     private let store: LocalStore
     private let queue = DispatchQueue(label: "local-store")
     private var timer: DispatchSourceTimer?
+    private var fsWatcher: FSEventWatcher?
     private var isOpen = false
     private var retryAt = Date.distantPast
     private var lastStatus: SourceStatus?
@@ -35,8 +40,28 @@ final class LocalWatcher {
         deliver: @escaping @MainActor (IncomingMessage) -> Void,
         event: @escaping @MainActor (SourceEvent) -> Void = { _ in }
     ) {
+        // Initial poll immediately
+        queue.async { [weak self] in
+            self?.poll(lookback: lookback, status: status, deliver: deliver, event: event)
+        }
+
+        // Try setting up kernel-level FSEvents if a directory path is available
+        var fseventsActive = false
+        if let dir = store.watchDirectory, FileManager.default.fileExists(atPath: dir) {
+            let watcher = FSEventWatcher(paths: [dir], latency: 0.2, queue: queue) { [weak self] in
+                self?.poll(lookback: lookback, status: status, deliver: deliver, event: event)
+            }
+            if watcher.start() {
+                self.fsWatcher = watcher
+                fseventsActive = true
+            }
+        }
+
+        // When FSEvents is active, run a relaxed 30s heartbeat to guarantee zero dropped events.
+        // When FSEvents is unavailable or denied, fall back to the 1-second polling timer.
         let t = DispatchSource.makeTimerSource(queue: queue)
-        t.schedule(deadline: .now(), repeating: 1)
+        let interval: TimeInterval = fseventsActive ? 30.0 : 1.0
+        t.schedule(deadline: .now() + interval, repeating: interval)
         t.setEventHandler { [weak self] in self?.poll(lookback: lookback, status: status, deliver: deliver, event: event) }
         t.resume()
         timer = t
@@ -47,6 +72,9 @@ final class LocalWatcher {
 
     func stop() {
         timer?.cancel()
+        timer = nil
+        fsWatcher?.stop()
+        fsWatcher = nil
         queue.async { [store] in store.close() }
     }
 

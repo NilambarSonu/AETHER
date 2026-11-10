@@ -1,6 +1,6 @@
 import Foundation
 
-enum SourceEvent: Equatable {
+public enum SourceEvent: Equatable, Sendable {
     case checked(Date)
     case message(Date)
     case retry(Date?)
@@ -10,7 +10,7 @@ enum SourceEvent: Equatable {
 
 /// How far a source has read, so a restart after sleep or a network change carries on from there
 /// instead of reading its whole history window again.
-enum ReadPosition: Equatable, Sendable {
+public enum ReadPosition: Equatable, Sendable {
     /// Messages: chat.db's ROWID, and the GUID of the message there, which tells the same database from
     /// a rebuilt one that numbers its rows anew.
     case row(Int64, guid: String)
@@ -20,14 +20,28 @@ enum ReadPosition: Equatable, Sendable {
     case cursor(String)
 }
 
-struct SourceHealth: Equatable {
-    var status: SourceStatus = .off
-    var lastChecked: Date?
-    var lastMessage: Date?
-    var lastCode: Date?
-    var retryAt: Date?
+public struct SourceHealth: Equatable, Sendable {
+    public var status: SourceStatus = .off
+    public var lastChecked: Date?
+    public var lastMessage: Date?
+    public var lastCode: Date?
+    public var retryAt: Date?
 
-    mutating func record(_ event: SourceEvent) {
+    public init(
+        status: SourceStatus = .off,
+        lastChecked: Date? = nil,
+        lastMessage: Date? = nil,
+        lastCode: Date? = nil,
+        retryAt: Date? = nil
+    ) {
+        self.status = status
+        self.lastChecked = lastChecked
+        self.lastMessage = lastMessage
+        self.lastCode = lastCode
+        self.retryAt = retryAt
+    }
+
+    public mutating func record(_ event: SourceEvent) {
         switch event {
         case .checked(let date): lastChecked = max(lastChecked ?? date, date)
         case .message(let date): lastMessage = max(lastMessage ?? date, date)

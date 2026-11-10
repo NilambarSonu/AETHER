@@ -21,6 +21,7 @@ final class MessagesStore: LocalStore {
     }
 
     var readPosition: ReadPosition? { guid.map { .row(position, guid: $0) } }
+    var watchDirectory: String? { (path as NSString).deletingLastPathComponent }
 
     /// Starts at the last ROWID before `since`, or where an earlier watcher stopped when that is later.
     func open(since: Date) -> String? {

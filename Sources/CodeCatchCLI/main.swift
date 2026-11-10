@@ -158,12 +158,26 @@ func verifiedConnection() -> Int32 {
     guard let peer = LocalSocket.peer(of: fd), peer.uid == getuid() else {
         finish(AgentError(.failed, "Something other than CodeCatch is listening at \(path). Not asking it."))
     }
-    // Only CodeCatch from this tool's own team, or from CodeCatch's when this build is unsigned: anyone
-    // can sign a program as com.uros.codecatch, but not under that team.
+    // Only the verified host application from this tool's own team: anyone can claim the identifier,
+    // but code signing validates the team. Missing or mismatched signatures fail closed in production.
     let server = CodeSignature.of(auditToken: peer.auditToken)
-    let team = CodeSignature.current?.team ?? "KS2HADLRV4"
-    guard let server, server.identifier == AgentWire.appIdentifier, server.team == team else {
-        finish(AgentError(.failed, "The program at \(path) isn't a signed CodeCatch. Not asking it."))
+    let local = CodeSignature.current
+    #if DEBUG
+    let isDev = true
+    let allowUnsigned = ProcessInfo.processInfo.environment["AETHER_DEV_IPC_ALLOW_UNSIGNED"] == "1"
+    #else
+    let isDev = false
+    let allowUnsigned = false
+    #endif
+
+    switch IPCPeerValidator.validate(
+        peer: server, local: local, role: .server,
+        isDevelopmentBuild: isDev, developmentAllowUnsigned: allowUnsigned)
+    {
+    case .valid:
+        break
+    case .invalid(let error):
+        finish(AgentError(.failed, "The program at \(path) isn't a verified host application (\(error)). Not asking it."))
     }
     return fd
 }

@@ -21,7 +21,7 @@ enum Prefs {
         defaults.register(defaults: [
             receivedCodes: true, signInLinks: true, resetLinks: true, bitwarden: true,
             showBanner: true, autoCopy: true, autoType: false, clearClipboard: true, codeInMenuBar: true,
-            sound: false, messages: true, appleMail: false, launchAtLogin: true, historyDays: 7, serviceIcons: true,
+            sound: false, messages: true, appleMail: false, launchAtLogin: true, historyDays: 7, serviceIcons: false,
             hideFromCapture: true, blurCodes: false, showPreviews: true, clearOnLock: false, hotkeys: true,
         ])
     }

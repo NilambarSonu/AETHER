@@ -1,27 +1,37 @@
-# Contributing
+# Contributing to AETHER
 
-CodeCatch is a macOS 15+ Swift package. It builds with Xcode or the Apple
-Command Line Tools, 26 or later. Use the checked-in `Package.resolved`.
+AETHER is a macOS 15+ Swift project targeting Apple Silicon. It builds with Xcode or the Apple
+Command Line Tools (Swift 5.10+ / Swift 6.0+). Use the checked-in `Package.resolved`.
 
 ```sh
+# Run the test suite
 scripts/test.sh --force-resolved-versions
+
+# Build release binaries
 swift build -c release --scratch-path .build-release --force-resolved-versions
+
+# Build AETHER droplet for Droppy
+scripts/build-droplet.sh
 ```
 
 These commands need no mail accounts, Full Disk Access, Accessibility, signing
 certificate or release secrets. Tests use synthetic messages, isolated settings,
-in-memory vaults and private pasteboards. CI runs them on Apple silicon and Intel.
+in-memory vaults and private pasteboards. CI runs them on GitHub-hosted macOS runners.
 Do not use a personal inbox or vault as a test fixture.
 
 ## Layout
 
 | Path | What it holds |
 |---|---|
-| `Sources/`, `Tests/` | The Swift package: the app, `CodeCatchCore` and the `codecatch` CLI, and their tests. See [ARCHITECTURE.md](ARCHITECTURE.md). |
-| `Resources/` | `Info.plist` and the app icon, copied into the bundle by `scripts/install.sh` |
-| `scripts/` | Build, release, test and site tooling |
-| `site/` | The website, codecatch.app |
-| `functions/` | Cloudflare Pages Functions for the site: download routing and install counts |
+| `Sources/AetherCore/` | Extracted headless verification engine, binary frame codecs, IPC transport actor and peer validators |
+| `Sources/CodeCatchCore/` | Deterministic code extraction, regex patterns, TOTP and mime parsing |
+| `Sources/CodeCatch/` | The host application: macOS adapters, local store watchers, menus and UI |
+| `Sources/CodeCatchCLI/` | The `codecatch` CLI tool |
+| `Droplet/` | The Droppy droplet plug-in bundle and DroppyKit interface definitions |
+| `Tests/` | Test suites for `AetherCore`, `CodeCatchCore`, and `CodeCatch` |
+| `Resources/` | `Info.plist` and app icon assets |
+| `scripts/` | Build, test, droplet packaging and release tooling |
+| `docs/` | Phase reports, architecture gates and security audit records |
 
 Swift package folders are capitalized as SwiftPM expects; `functions/` is the name Cloudflare
 Pages looks for; everything else is lowercase.

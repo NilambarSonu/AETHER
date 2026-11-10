@@ -1,0 +1,116 @@
+name: AETHER macOS CI & Droplet Build
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['**.md', 'docs/**', 'site/**']
+  pull_request:
+    branches: [main]
+    paths-ignore: ['**.md', 'docs/**', 'site/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aether-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build, Test & Package Droplet
+    runs-on: macos-15
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Environment Diagnostics
+        run: |
+          echo "=== macOS Version ==="
+          sw_vers
+          echo "=== Swift Version ==="
+          swift --version
+          echo "=== Active Xcode ==="
+          xcode-select -p
+          xcodebuild -version || true
+
+      - name: Resolve Swift Package Dependencies
+        run: |
+          swift package resolve
+
+      - name: Build AetherCore Target
+        run: |
+          echo "==> Building AetherCore target..."
+          swift build --target AetherCore
+
+      - name: Run Complete Test Suite
+        run: |
+          echo "==> Running complete test suite (AetherCore, CodeCatchCore, CodeCatch)..."
+          ./scripts/test.sh --force-resolved-versions
+
+      - name: Verify All 704 OTP Fixture Cases
+        run: |
+          echo "==> Verifying all 704 OTP test fixtures..."
+          swift test --filter CodeExtractorTests
+
+      - name: Build Host Application (Release Configuration)
+        run: |
+          echo "==> Building host release binaries..."
+          swift build -c release --scratch-path .build-release --force-resolved-versions \
+            -Xswiftc -debug-prefix-map -Xswiftc "$PWD=/src" \
+            -Xswiftc -file-prefix-map -Xswiftc "$PWD=/src"
+          BIN_PATH="$(swift build -c release --scratch-path .build-release --show-bin-path)"
+          echo "Release binaries located at: $BIN_PATH"
+          ls -la "$BIN_PATH"
+
+      - name: Build AETHER Droplet
+        run: |
+          echo "==> Building Aether.droplet..."
+          ./scripts/build-droplet.sh
+
+      - name: Verify Droplet Bundle Structure & Metadata
+        run: |
+          BUNDLE="Droplet/.build/Aether.droplet"
+          echo "==> Verifying bundle layout for $BUNDLE..."
+          [ -d "$BUNDLE/Contents/MacOS" ] || { echo "Missing Contents/MacOS"; exit 1; }
+          [ -f "$BUNDLE/Contents/MacOS/Aether" ] || { echo "Missing Aether binary"; exit 1; }
+          [ -f "$BUNDLE/Contents/Info.plist" ] || { echo "Missing Info.plist"; exit 1; }
+          [ -f "$BUNDLE/Contents/Resources/droplet.json" ] || { echo "Missing droplet.json"; exit 1; }
+
+          echo "==> Verifying Mach-O architecture..."
+          file "$BUNDLE/Contents/MacOS/Aether" | grep -q "Mach-O 64-bit dynamically linked shared library arm64"
+
+          echo "==> Verifying dynamic library references and rpaths..."
+          otool -L "$BUNDLE/Contents/MacOS/Aether"
+          otool -L "$BUNDLE/Contents/MacOS/Aether" | grep -q "@rpath/Aether"
+          otool -L "$BUNDLE/Contents/MacOS/Aether" | grep -q "DroppyKit.framework"
+
+          echo "==> Verifying droplet.json manifest properties..."
+          python3 -c '
+          import json
+          with open("Droplet/.build/Aether.droplet/Contents/Resources/droplet.json") as f:
+              m = json.load(f)
+          assert m.get("id") == "aether", "Invalid droplet id"
+          assert "hud" in m.get("capabilities", []), "Missing hud capability"
+          print("droplet.json manifest verification PASSED")
+          '
+
+      - name: Upload Droplet Bundle Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Aether-droplet-macos15-arm64
+          path: Droplet/.build/Aether.droplet/
+          retention-days: 14
+
+      - name: Upload Host Release Binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: Aether-host-binaries-macos15-arm64
+          path: |
+            .build-release/release/CodeCatch
+            .build-release/release/CodeCatchCLI
+          retention-days: 14

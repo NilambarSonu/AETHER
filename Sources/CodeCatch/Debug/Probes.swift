@@ -7,6 +7,7 @@
         static let all: [String: () async -> Void] = [
             "--probe": sources, "--probe-sign-in": signIn, "--probe-vault": vault,
             "--probe-apple-mail": appleMail, "--probe-messages": messages, "--probe-links": links, "--probe-caller": caller,
+            "--probe-droplet-otp": dropletOTP,
         ]
 
         /// `--probe-caller <pid>`: who the card would name for that process, as `codecatch` requests are labeled.
@@ -196,6 +197,73 @@
                     print("\(account.label): \(error.localizedDescription)")
                 }
                 await conn.close()
+            }
+        }
+
+        /// `--probe-droplet-otp`: Starts Aether IPC Transport Server, waits for Droppy client connection,
+        /// broadcasts synthetic OTP (482731), and records presentation and copy acknowledgments.
+        static func dropletOTP() async {
+            print("==> Starting Aether IPC Transport Server...")
+            let server = AetherIPCTransportServer(
+                peerValidator: AetherDroppyPeerValidator()
+            )
+            do {
+                try await server.start()
+                print("==> Aether server listening at: \(server.endpoint.socketPath)")
+                print("==> Session token written at: \(server.tokenManager.tokenPath)")
+                print("==> Waiting for Droppy droplet client connection...")
+
+                // Wait up to 60 seconds for Droppy client
+                var connected = false
+                for _ in 0..<600 {
+                    if await server.isClientConnected {
+                        connected = true
+                        break
+                    }
+                    try await Task.sleep(nanoseconds: 100_000_000)
+                }
+
+                guard connected else {
+                    print("ERROR: Droppy client did not connect within 60 seconds.")
+                    await server.stop()
+                    return
+                }
+
+                print("==> Droppy client connected and session adopted successfully!")
+                print("==> Broadcasting synthetic OTP payload (service: GitHub, code: 482731)...")
+
+                let payload = try AetherOTPPayload(
+                    source: .gmail,
+                    serviceLabel: "GitHub",
+                    otpCode: "482731"
+                )
+
+                let result = try await server.broadcast(payload: payload)
+                print("==> Broadcast result: \(result)")
+
+                print("==> Listening for Droppy client acknowledgments...")
+                let deadline = Date().addingTimeInterval(45)
+                var acks = server.acknowledgments.makeAsyncIterator()
+
+                while Date() < deadline {
+                    let nextAckTask = Task { await acks.next() }
+                    let timerTask = Task { try? await Task.sleep(nanoseconds: 500_000_000) }
+                    _ = await timerTask.value
+                    if let ack = await nextAckTask.value {
+                        print("==> Received acknowledgment: status=\(ack.status) (eventID: \(ack.eventID))")
+                        if ack.status == .copied {
+                            print("==> Droppy HUD Copy Action verified! Test PASSED.")
+                            break
+                        }
+                    }
+                }
+
+                print("==> Stopping server...")
+                await server.stop()
+                print("==> Server stopped cleanly.")
+            } catch {
+                print("ERROR: \(error)")
+                await server.stop()
             }
         }
     }

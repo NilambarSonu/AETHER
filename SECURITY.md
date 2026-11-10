@@ -1,19 +1,22 @@
-# Security
+# Security Policy
 
-CodeCatch reads verification codes, so a flaw in it matters. Please report one
-privately rather than in a public issue: open the repository's **Security** tab
-and choose **Report a vulnerability**.
+AETHER processes sensitive verification codes and coordinates ephemeral notifications, so security is paramount. Please report vulnerabilities privately rather than in public issues:
 
-Useful in a report: the CodeCatch build (Get Info shows it), the macOS version,
-and the steps or a sample message that show the problem. Remove real codes,
-links and addresses from anything you attach.
+1. Open the repository's **Security** tab on GitHub (`NilambarSonu/AETHER`).
+2. Select **Report a vulnerability**.
 
-In scope: anything that exposes a code, sign-in link, message, mail credential or
-Bitwarden secret to another app, another user, the network or the disk; a way to
-make CodeCatch open, type or send something the user did not ask for; a way to
-get a code or link through `codecatch` without the user's approval or a rule they
-made; and flaws in the update path. What CodeCatch reads, keeps and connects to is listed at
-<https://codecatch.app/privacy/>; behaviour that contradicts that page is a bug
-worth reporting too.
+### Helpful in a Report
+- The AETHER build and git commit hash.
+- macOS version and hardware architecture.
+- Steps to reproduce or sample messages that illustrate the issue (strictly redact all real credentials, codes, links, and addresses).
 
-Only the latest release is supported. It updates itself.
+### In Scope
+- Any mechanism that exposes a verification code, sign-in link, raw message, or credential to another unauthorized local application, another user, the network, or the disk.
+- Any bypass of Darwin kernel audit token validation (`LOCAL_PEERTOKEN`) or code signature validation (`SecCodeCheckValidity`).
+- Any IPC frame boundary or length-prefixed codec buffer overflow / DoS vulnerability.
+- Any race condition on local Unix Domain Sockets or session token files.
+- Flaws in the update path or permissions boundaries.
+
+### Out of Scope
+- Attacks requiring root or kernel privileges on the local machine.
+- Vulnerabilities in unmodified upstream dependencies unless exploitable through AETHER.

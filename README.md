@@ -1,126 +1,240 @@
-<div align="center">
-  <h1>CodeCatch</h1>
-  <p><em>Sign in without checking your phone or inbox.</em></p>
-  <p>
-    <a href="https://github.com/ugzv/CodeCatch/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ugzv/CodeCatch/ci.yml?branch=main&style=flat-square&label=tests" alt="Tests"></a>
-    <a href="https://github.com/ugzv/CodeCatch/releases/latest"><img src="https://img.shields.io/github/v/release/ugzv/CodeCatch?style=flat-square" alt="Latest release"></a>
-    <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL_v3-blue.svg?style=flat-square" alt="License: GPL v3"></a>
-    <img src="https://img.shields.io/badge/macOS-15%2B-black?style=flat-square" alt="macOS 15 or later">
-  </p>
-  <p><a href="https://codecatch.app/download/CodeCatch.dmg"><b>Download for Mac</b></a> · <a href="https://codecatch.app">codecatch.app</a> · <a href="https://codecatch.app/privacy/">Privacy</a> · <a href="https://codecatch.app/changelog/">Changelog</a></p>
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset=".github/demo-dark.gif">
-    <img src=".github/demo-light.gif" alt="A code arrives by text, then by email, then a sign-in link. CodeCatch copies each one, and ⌘V pastes it into the sign-in page." width="600">
-  </picture>
-</div>
+# AETHER
 
-CodeCatch is a Mac menu bar app. When a 2FA verification code or sign-in link
-arrives in **Messages** or your **mail**, it copies it. Press ⌘V and you're in,
-in any browser or app.
+[![CI](https://github.com/NilambarSonu/AETHER/actions/workflows/macos-build.yml/badge.svg)](https://github.com/NilambarSonu/AETHER/actions/workflows/macos-build.yml)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+[![Platform: macOS 15.0+](https://img.shields.io/badge/macOS-15.0%2B-black?logo=apple)](https://www.apple.com/macos/)
+[![Apple Silicon](https://img.shields.io/badge/Architecture-Apple%20Silicon-orange)](https://support.apple.com/en-us/HT211814)
 
-## What it does
+**AETHER** is a high-performance, privacy-first verification code (OTP) detection engine and Dynamic Island / notch notification bridge for macOS. Evolved from [CodeCatch](https://github.com/ugzv/CodeCatch), AETHER extracts ephemeral verification codes in real time from email and messaging channels and projects them directly into your macOS notch or Dynamic Island HUD via [Droppy](https://getdroppy.app) with seamless one-click clipboard copying.
 
-- **Copies new codes.** The code is on your clipboard when it arrives and is
-  cleared after 90 seconds.
-- **Shows a small banner** that never takes focus from what you're typing.
-- **Keeps recent codes in the menu bar.** Click one to copy it.
-- **Learns what isn't a code.** Right-click a wrong one and choose **Not a
-  Code**. The sender's real codes still come through.
-- **Handles sign-in and password reset links.** It warns you when a link leads
-  to a different site than the sender's, and never opens one by itself.
-- **Reads Messages and mail:** iMessage, forwarded SMS, the Mail app, Gmail,
-  Outlook and any IMAP account.
-- **Shows your Bitwarden codes** next to the ones you receive.
-- **Lets your agents sign in, with your OK** (off by default).
-- **Can type the code for you** (off by default).
-- **Works from the keyboard.** ⌃⌥⌘C copies the latest code. ⌃⌥⌘F opens search.
-- **Reads about 35 languages.**
-- **Stays private.** Hidden from screen sharing, with optional blur and
-  clearing when the Mac locks.
+---
 
-## Install
+## 1. Project Purpose & Design Principles
 
-You need **macOS 15 or later** on Apple silicon or Intel, and a Mac login
-password.
+Traditional verification workflows require leaving your active window, opening a mail or messaging client, searching for the message, manually selecting the code, and returning to the target site. AETHER eliminates this friction while enforcing strict zero-trust boundaries:
 
-[Download CodeCatch.dmg](https://codecatch.app/download/CodeCatch.dmg). It is
-signed, notarized and updates itself. To build from source, run
-`scripts/install.sh`. You only need Apple's Command Line Tools 26 or later.
+- **Zero-Secret Persistence:** Ephemeral OTP codes are processed in memory and never written to disk, databases, or log files.
+- **Mutual Kernel Peer Authentication:** Cross-process communication between the AETHER engine and Droppy enforces kernel-level audit tokens (`LOCAL_PEERTOKEN`) and cryptographic code signatures.
+- **In-Process Privilege Isolation (Option A):** All disk access, mail parsing, and Keychain secrets remain strictly confined within the AETHER host process. The UI presentation layer (`Aether.droplet`) runs as a sandboxed plug-in inside Droppy with zero disk or credential access.
+- **Modern Swift Concurrency:** Fully asynchronous, actor-isolated architecture without blocking thread pools or busy-wait polling.
 
-For SMS codes, turn on **Text Message Forwarding** on your iPhone.
+---
 
-To check it works, open the menu → gear → **Show Test Code**.
+## 2. Current Implementation Status
 
-### Permissions
+AETHER is developed across structured engineering phases:
 
-| Permission | Why |
-|---|---|
-| **Full Disk Access** | Only to read Messages and Apple Mail. Mail accounts don't need it. |
-| **Accessibility** | Only to type codes for you |
+- [x] **Phase 1.1–1.2:** IPC Security Verification & Peer Validator Foundation
+- [x] **Phase 2A–2B:** Provider Modernization, FSEvents Event-Driven Engine & Icon Privacy
+- [x] **Phase 3A–3B:** Headless Engine Architecture & `AetherCore` Module Extraction
+- [x] **Phase 3C:** Versioned Length-Prefixed Binary Frame Codec
+- [x] **Phase 3D–3E.1:** Secure Host IPC Transport, Kernel Audit Tokens & Inode Hardening
+- [x] **Phase 3F:** Droppy Client Transport, Resilient ABI Alignment & First Local HUD Integration
+- [ ] **Phase 4 (Upcoming):** Live Provider Pipeline Integration (Connecting live Apple Mail, Messages, and IMAP streams to Droppy HUD)
 
-### Mail
+> [!NOTE]
+> **Implementation Scope:** The cross-process IPC transport, mutual kernel code validation, and Droppy HUD card presentation have been verified end-to-end using synthetic OTP events. Direct background monitoring from live mailboxes into the Droppy HUD is scheduled for Phase 4.
 
-- **Apple Mail:** Settings → Sources → turn on *Apple Mail*. No sign-in needed.
-- **Gmail, Outlook and IMAP:** Settings → Sources → *Add Account…*. Gmail takes
-  Sign in with Google (beta) or an
-  [app password](https://support.google.com/accounts/answer/185833). Outlook
-  takes Sign in with Microsoft (beta).
+---
 
-CodeCatch only reads mail. It never marks, moves or changes a message.
+## 3. Architecture & Subsystem Relationship
 
-### Bitwarden
+AETHER adopts **Option A (In-Process Engine + Separate Droppy UI Client)**:
 
-1. Install the [Bitwarden CLI](https://bitwarden.com/help/cli/) and run
-   `bw login` once.
-2. In CodeCatch, open Settings → Sources → Bitwarden → *Set Up…*.
-
-CodeCatch keeps only each login's name, username, site and TOTP secret, in your
-Keychain. It makes codes offline, and you unlock them with Touch ID or your Mac
-password.
-
-### Agents
-
-Claude Code, Codex and scripts can ask for a code while they sign in for you.
-
-1. Open Settings → Agents and turn on **Let Agents Ask for Codes**. This also
-   adds `codecatch` to `/usr/local/bin`.
-2. Click **Connect** next to Claude Code, Codex or Cursor. This adds a small
-   skill the agent loads only when it needs a code. For other agents, copy the
-   text under **Other Agents** into their instructions.
-
-```bash
-codecatch get github.com --json
+```
++-----------------------------------------------------------------------------------+
+|                              macOS 15.0+ (Darwin 24)                              |
++-----------------------------------------------------------------------------------+
+|                                                                                   |
+|  [ AETHER Host Process ] (com.uros.codecatch)                                     |
+|  ├── Mail & Messages Monitoring (Apple Mail SQLite, Messages DB, IMAP IDLE)       |
+|  ├── CodeCatchCore: Regex & Deterministic Code Extraction (704 test fixtures)     |
+|  ├── AetherCore: Headless Engine & Source Coordinator                             |
+|  └── AetherIPCTransportServer (Actor)                                             |
+|        │                                                                          |
+|        │  POSIX Unix Domain Socket: ~/Library/Application Support/Aether/droplet.sock
+|        │  Security: 0700 dir, 0600 token, advisory lock, inode verification       |
+|        │  Authentication: Darwin audit token (LOCAL_PEERTOKEN) -> SecCode check   |
+|        │  Wire Protocol: Bounded length-prefixed binary frames (max 4,100 bytes)   |
+|        ▼                                                                          |
+|  [ Droppy Host Application ] (iordv.Droppy, Team ID: NARHG44L48)                  |
+|  ├── Droplet Host & Notch HUD Management                                          |
+|  └── Loads Aether.droplet Bundle                                                  |
+|        ├── AetherPrincipal & AetherDroplet (Swift 6 resilient ABI)                |
+|        ├── AetherIPCClientTransport (Actor)                                       |
+|        │     └── Validates Server Audit Token (identifier "com.uros.codecatch")   |
+|        └── On Event -> Presents DropletHUDCard & emits .displayed ACK             |
+|              └── On "Copy" Button -> host.workspace.copyToPasteboard(code)        |
+|                    └── Emits .copied ACK to Host Transport                        |
+|                                                                                   |
++-----------------------------------------------------------------------------------+
 ```
 
-You approve each code with Touch ID, choose **Always Allow** for a site and
-app, or turn on **Allow All Without Asking**, which also needs Touch ID.
-Sign-in links have their own switch, off until you turn it on. Only mail from
-the site's own domain counts. Nothing goes over the network. `codecatch --help`
-has the rest.
+---
 
-## Privacy
+## 4. IPC Authentication & Security Model
 
-Codes and messages stay on your Mac. Received codes live in memory only. Mail
-passwords and Bitwarden secrets live in your login Keychain (service
-`com.uros.codecatch`). CodeCatch connects only to your mail provider, Bitwarden
-when you import, Google or Microsoft if you sign in with them, `codecatch.app`
-for updates, and Google's or DuckDuckGo's logo service (turn off in
-Settings → Privacy).
+Communication between the host and droplet occurs over a local Unix Domain Socket (UDS) protected by multiple defense layers:
 
-The full list is at [codecatch.app/privacy](https://codecatch.app/privacy/).
-How it works inside is in [ARCHITECTURE.md](ARCHITECTURE.md).
+1. **Kernel Audit Tokens (`LOCAL_PEERTOKEN`):** Both sides query Darwin kernel credentials using `getsockopt(fd, SOL_LOCAL, LOCAL_PEERTOKEN)`. Userland process forgery is impossible.
+2. **Security Framework Code Signing:**
+   - **Host verifies Droppy:** Enforces `anchor apple generic and identifier "iordv.Droppy" and certificate leaf[subject.OU] = "NARHG44L48"`.
+   - **Droplet verifies Host:** Enforces `anchor apple generic and identifier "com.uros.codecatch"`.
+3. **POSIX DAC & Filesystem Race Resistance:**
+   - Socket directory `~/Library/Application Support/Aether` is enforced to mode `0700` owned by `getuid()`.
+   - Ephemeral 256-bit session token is regenerated on every launch, stored with mode `0600`, and validated against inode/device swaps before unlinking.
+   - Advisory locking (`flock`) on `droplet.sock.lock` prevents dual-instance conflicts.
+4. **Bounded Framing & DoS Resistance:**
+   - Wire frames are prefixed with a 4-byte big-endian length header strictly capped at 4,096 bytes (4,100 bytes wire limit).
+   - The frame decoder enforces a hard memory cap of 16,384 bytes, dropping misbehaving streams before memory starvation.
 
-## Alternatives
+---
 
-Looking for a 2FHey or MessAuto alternative that also reads mail, catches
-sign-in links (magic links) and works in Chrome, Arc and Firefox? See [CodeCatch vs 2FHey](https://codecatch.app/vs/2fhey/) and
-[CodeCatch vs MessAuto](https://codecatch.app/vs/messauto/).
+## 5. Synthetic OTP Demonstration
 
-## Develop
+Phase 3F verified end-to-end HUD presentation and pasteboard interaction:
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Run the tests with `scripts/test.sh`.
+```
+$ .build/out/Products/Debug/CodeCatch --probe-droplet-otp
+==> Starting Aether IPC Transport Server...
+==> Aether server listening at: ~/Library/Application Support/Aether/droplet.sock
+==> Waiting for Droppy droplet client connection...
+[AetherIPCServer] Accepted connection from peer (PID 77441)
+[AetherHostPeerValidator] Validated peer code signature: iordv.Droppy (Team NARHG44L48)
+==> Droppy client connected and session adopted successfully!
+==> Broadcasting synthetic OTP payload (service: GitHub, code: 482731)...
+==> Broadcast result: delivered(clientCount: 1)
+==> Received acknowledgment: status=displayed (eventID: ...)
+[User clicked HUD "Copy" button in Droppy notch card]
+==> Received acknowledgment: status=copied (eventID: ...)
+==> Droppy HUD Copy Action verified! Test PASSED.
+```
 
-## License
+Clipboard verification:
+```
+$ pbpaste
+482731
+```
 
-[GPL-3.0](LICENSE). If you share a fork or a build, you must publish its source
-under the same license. To report a security problem, see [SECURITY.md](SECURITY.md).
+---
+
+## 6. System Requirements & Hardware Architecture
+
+- **Operating System:** macOS 15.0 (Sequoia) or later
+- **Architecture:** Apple Silicon (`arm64` / Apple M-series)
+- **Toolchain:** Swift 5.10+ / Swift 6.0+ (Xcode Command Line Tools or Xcode 16+)
+- **Optional Companion:** [Droppy](https://getdroppy.app) for Dynamic Island / notch HUD card presentation
+
+---
+
+## 7. Repository Layout
+
+```
+Aether/
+├── Droplet/                       # Droppy droplet plug-in bundle
+│   ├── Aether/
+│   │   ├── Info.plist             # Bundle metadata & principal class definition
+│   │   ├── droplet.json           # Droplet manifest (HUD & clipboard capabilities)
+│   │   └── Sources/
+│   │       └── AetherDroplet.swift# Droplet implementation & HUD card presentation
+│   └── DroppyKitInterface.swift   # Resilient ABI declarations for DroppyKit SDK
+├── Sources/
+│   ├── AetherCore/                # Extracted headless verification engine
+│   │   ├── Codec/                 # Length-prefixed frame encoder & decoder
+│   │   ├── Coordinator/           # Provider lifecycle management
+│   │   ├── Models/                # Engine message and status types
+│   │   ├── Protocol/              # Ephemeral OTP payload & ACK contracts
+│   │   ├── Sources/               # Asynchronous mail source protocols
+│   │   └── Transport/             # Secure UDS server, client & peer validators
+│   ├── CodeCatchCore/             # Deterministic regex code extraction engine
+│   ├── CodeCatch/                 # Host application & macOS system adapters
+│   └── CodeCatchCLI/              # Local developer CLI tool
+├── Tests/
+│   ├── AetherCoreTests/           # Client/server transport, codec & security tests
+│   ├── CodeCatchCoreTests/        # 704 OTP regex fixture test suites
+│   └── CodeCatchTests/            # macOS integration & provider test suites
+├── docs/                          # Architectural reports & security audit records
+├── scripts/
+│   ├── build-droplet.sh           # Reproducible droplet build & install script
+│   ├── test.sh                    # Full workspace test suite runner
+│   └── install.sh                 # Production packaging tool
+├── NOTICE.md                      # Upstream attribution & modification history
+└── LICENSE                        # GNU General Public License v3.0
+```
+
+---
+
+## 8. Build & Test Instructions
+
+### Building the Host Application
+
+No Xcode IDE installation is required; the standard Apple Command Line Tools provide everything needed:
+
+```bash
+# Resolve dependencies
+swift package resolve
+
+# Build AetherCore engine
+swift build --target AetherCore
+
+# Build host application (Release)
+swift build -c release --scratch-path .build-release
+```
+
+### Building & Installing the AETHER Droplet
+
+The droplet build script assembles the resilient SDK interface, compiles the Apple Silicon Mach-O dynamic library, packages the `.droplet` bundle, and applies an ad-hoc code signature:
+
+```bash
+# Build droplet bundle to Droplet/.build/Aether.droplet
+./scripts/build-droplet.sh
+
+# Build and install directly into Droppy (if Droppy is installed locally)
+./scripts/build-droplet.sh --install
+```
+
+### Running the Test Suite
+
+Run all 331 tests across all 26 suites:
+
+```bash
+./scripts/test.sh --force-resolved-versions
+```
+
+Verify the 704 OTP test fixtures individually:
+
+```bash
+swift test --filter CodeExtractorTests
+```
+
+---
+
+## 9. Known Limitations
+
+1. **Phase 3F Milestone:** Live background provider monitoring (Apple Mail SQLite, Messages DB, and IMAP) currently flows into the existing host menu bar UI; routing live provider events into the Droppy IPC transport is the primary objective of Phase 4.
+2. **Droppy Companion Requirement:** Notch and Dynamic Island visual cards require the [Droppy](https://getdroppy.app) application. When Droppy is not running, the AETHER engine operates in headless mode without error.
+3. **Distribution Signing:** Droplet bundles built via `scripts/build-droplet.sh` use ad-hoc code signatures suitable for local development and CI verification. Official public redistribution requires Developer ID signing and notarization.
+
+---
+
+## 10. Security Disclosure
+
+Because AETHER processes sensitive verification credentials, security vulnerabilities are treated with highest urgency. Please report vulnerabilities privately rather than in public GitHub issues:
+
+1. Open the repository's **Security** tab.
+2. Select **Report a vulnerability**.
+3. Include reproducible steps, macOS version, and system logs with all real credentials redacted.
+
+Refer to [`SECURITY.md`](SECURITY.md) for complete details.
+
+---
+
+## 11. License & Upstream Attribution
+
+AETHER is licensed under the **GNU General Public License v3.0 (GPLv3)**.  
+See [`LICENSE`](LICENSE) for the full license text.
+
+AETHER is an evolution of **CodeCatch**, Copyright (C) 2024–2026 Uros and CodeCatch contributors.  
+Original AETHER modifications, `AetherCore`, IPC transport, and Droplet integrations are Copyright (C) 2026 Nilambar Behera.
+
+For complete upstream attribution and modification records, see [`NOTICE.md`](NOTICE.md).

@@ -193,6 +193,8 @@ public enum CodeExtractor {
         #"tek kullan\w*"#, #"[şs]ifre\w*"#, "do[ğg]rulama",
         // Vietnamese
         #"m[ãa] (?:x[áa]c (?:minh|nh[ậa]n|th[ựu]c)|k[íi]ch ho[ạa]t|OTP)"#,
+        // Hindi / Devanagari
+        "सत्यापन", "कोड", "ओटीपी", "पासकोड", "सुरक्षा",
     ]
 
     /// Scripts without spaces between words (Chinese, Japanese, Korean, Thai), and Hebrew,
@@ -212,8 +214,8 @@ public enum CodeExtractor {
         "验证码", "驗證碼", "动态码", "動態碼", "校验码", "确认码", "认证码", "認證碼", "代码",
         // Japanese, Korean
         "(?<!QR|ＱＲ|クーポン|プロモーション|招待|ギフト)コード", "認証番号", "暗証番号", "인증번호", "(?<!QR ?|쿠폰|프로모션|초대|기프트)코드",
-        // Hebrew, Arabic, Persian, Thai
-        "קוד", "رمز", "كود", "کد", "รหัส",
+        // Hebrew, Arabic, Persian, Thai, Hindi
+        "קוד", "رمز", "كود", "کد", "รหัส", "कोड",
     ]
 
     private static let keyword = rx(#"\b(?:"# + keywords.joined(separator: "|") + #")\b|"# + unspacedKeywords.joined(separator: "|"), .caseInsensitive)
@@ -284,12 +286,32 @@ public enum CodeExtractor {
     // MARK: - Helpers
 
     private static func clean(_ text: String) -> String {
-        // Arabic and Hebrew texts wrap codes in invisible direction marks: "‏78162106‏", "⁦291965⁩".
+        // Strip non-breaking spaces, zero-width chars (ZWSP, ZWNJ, ZWJ, BOM, soft hyphen), and direction marks
         var t = text.replacingOccurrences(of: "\u{00A0}", with: " ")
-            .replacingOccurrences(of: "[\u{200E}\u{200F}\u{202A}-\u{202E}\u{2066}-\u{2069}]", with: "", options: .regularExpression)
+            .replacingOccurrences(of: "[\u{00AD}\u{200B}-\u{200D}\u{200E}\u{200F}\u{202A}-\u{202E}\u{2066}-\u{2069}\u{FEFF}]", with: "", options: .regularExpression)
+        t = normalizeDigits(t)
         t = urlsAndEmails.stringByReplacingMatches(in: t, range: NSRange(location: 0, length: (t as NSString).length), withTemplate: " ")
         // "验证码9316" / "認証コードは482913です": set digits apart from the words they're written against.
         return cjkDigitSeam.stringByReplacingMatches(in: t, range: NSRange(location: 0, length: (t as NSString).length), withTemplate: " ")
+    }
+
+    /// Normalizes Unicode decimal digits (Arabic-Indic, Eastern Arabic/Persian, Devanagari) to ASCII 0-9.
+    private static func normalizeDigits(_ s: String) -> String {
+        var result = ""
+        result.reserveCapacity(s.count)
+        for scalar in s.unicodeScalars {
+            switch scalar.value {
+            case 0x0660...0x0669: // Arabic-Indic digits ٠-٩
+                result.append(Character(UnicodeScalar(0x30 + (scalar.value - 0x0660))!))
+            case 0x06F0...0x06F9: // Eastern Arabic-Indic / Persian digits ۰-۹
+                result.append(Character(UnicodeScalar(0x30 + (scalar.value - 0x06F0))!))
+            case 0x0966...0x096F: // Devanagari digits ०-९
+                result.append(Character(UnicodeScalar(0x30 + (scalar.value - 0x0966))!))
+            default:
+                result.append(Character(scalar))
+            }
+        }
+        return result
     }
 
     private static let cjk = #"[\p{Han}\p{Hiragana}\p{Katakana}\p{Hangul}\p{Thai}]"#

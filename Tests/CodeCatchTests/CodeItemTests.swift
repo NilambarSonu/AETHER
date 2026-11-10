@@ -154,6 +154,7 @@ func linkNotice(sender: String, link: String, verified: Bool?, warns: Bool?) {
 @MainActor @Test func mailOriginationNamesTheMailboxOnlyWhenItIsAmbiguous() throws {
     let suite = "Origination.\(UUID())"
     let defaults = try #require(UserDefaults(suiteName: suite))
+    defaults.set(true, forKey: Prefs.serviceIcons)
     defer { defaults.removePersistentDomain(forName: suite) }
     let first = MailAccount(label: "Gmail", host: "imap.gmail.com", user: "first@gmail.com")
     let second = MailAccount(label: "Gmail", host: "imap.gmail.com", user: "second@gmail.com")

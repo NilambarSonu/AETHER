@@ -41,27 +41,4 @@ private final class UpdaterDelegate: NSObject, SPUUpdaterDelegate {
         if Prefs[Prefs.clearClipboard] { Clipboard.clearIfOurs() }
         install()
     }
-
-    /// Adds a random install ID, the build, macOS version and Mac model to each update check, so
-    /// codecatch.app can count installs per version (functions/_middleware.js). Nothing else is sent.
-    func feedParameters(for updater: SPUUpdater, sendingSystemProfile: Bool) -> [[String: String]] {
-        let defaults = UserDefaults.standard
-        let id = defaults.string(forKey: "installID") ?? UUID().uuidString
-        defaults.set(id, forKey: "installID")
-        let os = ProcessInfo.processInfo.operatingSystemVersion
-        return [
-            ["key": "id", "value": id],
-            ["key": "build", "value": Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""],
-            ["key": "os", "value": "\(os.majorVersion).\(os.minorVersion).\(os.patchVersion)"],
-            ["key": "model", "value": Self.model],
-        ]
-    }
-
-    private static let model: String = {
-        var size = 0
-        sysctlbyname("hw.model", nil, &size, nil, 0)
-        var bytes = [CChar](repeating: 0, count: size)
-        sysctlbyname("hw.model", &bytes, &size, nil, 0)
-        return String(cString: bytes)
-    }()
 }

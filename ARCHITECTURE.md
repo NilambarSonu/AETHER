@@ -1,13 +1,14 @@
-# Architecture and privacy boundaries
+# Architecture and Privacy Boundaries
 
-CodeCatch has three Swift targets. Sparkle is the only package dependency; its
-resolved version is checked in.
+AETHER implements **Option A (In-Process Engine with Droplet UI Bridge)**. Sparkle is the only external package dependency; its resolved version is pinned.
 
-| Target | What it holds |
-|---|---|
-| `CodeCatchCore` | Code extraction, MIME, service names, sign-in links, TOTP and the agent socket protocol. No UI, no account access. |
-| `CodeCatch` | The app: macOS adapters, orchestration and SwiftUI views. |
-| `CodeCatchCLI` | `codecatch`, the command agents run to ask the app for a code. |
+| Target / Bundle | Type | What it holds |
+|---|---|---|
+| `AetherCore` | Swift Package Target | Headless verification engine, event-driven provider coordinator, length-prefixed frame codecs, secure Unix Domain Socket transport server & client actors, and Darwin kernel audit token peer validators. |
+| `CodeCatchCore` | Swift Package Target | Code extraction regex engine, MIME parsing, service identifiers, sign-in link handlers, and TOTP algorithms. No UI, no network, no account access. |
+| `CodeCatch` | Swift Package Target (App) | The host application: macOS adapters, orchestration, local SQLite database watchers, IMAP client, and menu bar popover. |
+| `CodeCatchCLI` | Swift Package Target (CLI) | `codecatch`, the local CLI tool for local verification lookups. |
+| `Aether.droplet` | Plug-in Bundle (`.droplet`) | Standalone dynamic island / notch HUD plug-in loaded by Droppy (`iordv.Droppy`). Connects to `AetherIPCTransportServer` over UDS and renders ephemeral OTP notification cards with automatic pasteboard copying. |
 
 Inside `Sources/CodeCatch`:
 

@@ -69,12 +69,22 @@ enum CLIServer {
         // Who asked is read at once, before the client has time to exit and leave its pid to another process.
         guard let peer = LocalSocket.peer(of: fd), peer.uid == getuid() else { return drop() }
         // Only the codecatch this team signed, checked by audit token: the walk up from it then starts at a
-        // process that can't be swapped. An unsigned development build skips this.
-        if let team = CodeSignature.current?.team {
-            let client = CodeSignature.of(auditToken: peer.auditToken)
-            guard client?.identifier == AgentWire.cliIdentifier, client?.team == team else {
-                return drop(AgentError(.usage, "Use the codecatch tool that comes with CodeCatch."))
-            }
+        // process that can't be swapped. Missing or mismatched signatures fail closed in production.
+        let client = CodeSignature.of(auditToken: peer.auditToken)
+        let local = CodeSignature.current
+        #if DEBUG
+        let isDev = true
+        let allowUnsigned = ProcessInfo.processInfo.environment["AETHER_DEV_IPC_ALLOW_UNSIGNED"] == "1"
+        #else
+        let isDev = false
+        let allowUnsigned = false
+        #endif
+
+        let validation = IPCPeerValidator.validate(
+            peer: client, local: local, role: .client,
+            isDevelopmentBuild: isDev, developmentAllowUnsigned: allowUnsigned)
+        guard validation.isValid else {
+            return drop(AgentError(.usage, "Use the codecatch tool that comes with CodeCatch."))
         }
         let caller = CallerIdentity.caller(pid: peer.pid)
         logger.debug("Connection from \(caller.logLabel, privacy: .public)")
