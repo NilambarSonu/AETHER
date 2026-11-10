@@ -28,7 +28,7 @@ In accordance with Section 5 of the GNU General Public License v3:
   2. **IPC Protocol & Frame Codec:** Length-prefixed binary wire frame encoder/decoder (`AetherFrameCodec`, `AetherFrameDecoder`) and versioned OTP payload/acknowledgment contracts (`AetherOTPPayload`, `AetherOTPAcknowledgment`).
   3. **Secure IPC Transport:** Host and client Unix Domain Socket transport engine with POSIX DAC security, filesystem race prevention, advisory locking (`droplet.sock.lock`), and inode tracking (`AetherIPCTransportServer`, `AetherIPCClientTransport`, `AetherSocketEndpoint`).
   4. **Darwin Kernel Peer Authentication:** Mutual peer verification via Darwin kernel audit tokens (`LOCAL_PEERTOKEN`) and Security framework (`SecCodeCopyGuestWithAttributes`, `SecCodeCheckValidity`) validating `iordv.Droppy` (Team `NARHG44L48`) and `com.uros.codecatch`.
-  5. **DroppyKit Bridge & Droplet:** Complete droplet implementation (`Droplet/Aether/Sources/AetherDroplet.swift`), resilient ABI alignment (`-enable-library-evolution`), manifest, and bundle packaging pipeline (`scripts/build-droplet.sh`).
+  5. **DroppyKit Bridge & Droplet:** Official DroppyKit SwiftPM integration (`Droplet/Package.swift`), droplet implementation (`Droplet/Sources/AETHER/AetherDroplet.swift`), synchronized IPC client (`Droplet/Sources/AetherIPC/`), manifest (`Droplet/droplet.json`), and safe installation wrapper (`scripts/build-droplet.sh`).
   6. **Event-Driven Provider Monitoring:** Modern FSEvents-based file monitoring (`FSEventWatcher`), asynchronous mail sources (`AetherMailSource`, `AetherIMAPSource`), and lifecycle coordinator (`AetherSourceCoordinator`).
 
 ---
@@ -38,7 +38,7 @@ In accordance with Section 5 of the GNU General Public License v3:
 ### DroppyKit SDK
 - **Copyright (c) 2026 Jordy Spruit. All rights reserved.**
 - Repository: [https://gitlab.com/droppyformac1/droppykit](https://gitlab.com/droppyformac1/droppykit)
-- Licensed under the DroppyKit SDK License 1.0. Droplets built for Droppy link against the DroppyKit SDK framework provided at runtime by the Droppy application.
+- Licensed under the DroppyKit SDK License 1.0. No proprietary `Droppy.app` or `DroppyKit.framework` binaries or SDK implementations are redistributed in this repository. [`Droplet/Package.swift`](Droplet/Package.swift) declares the official DroppyKit SwiftPM dependency directly and builds universal resilient `.droplet` bundles linking `@rpath/DroppyKit.framework/Versions/A/DroppyKit`, which `dyld` resolves dynamically against the host `Droppy.app` at runtime.
 
 ### Sparkle Project
 - **Copyright (c) Andy Matuschak and Sparkle project contributors.**

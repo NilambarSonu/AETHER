@@ -11,11 +11,11 @@
 
 ## 1. Project Purpose & Design Principles
 
-Traditional verification workflows require leaving your active window, opening a mail or messaging client, searching for the message, manually selecting the code, and returning to the target site. AETHER eliminates this friction while enforcing strict zero-trust boundaries:
+Traditional verification workflows require leaving your active window, opening a mail or messaging client, searching for the message, manually selecting the code, and returning to the target site. AETHER eliminates this friction while separating host data access from UI presentation:
 
 - **Zero-Secret Persistence:** Ephemeral OTP codes are processed in memory and never written to disk, databases, or log files.
-- **Mutual Kernel Peer Authentication:** Cross-process communication between the AETHER engine and Droppy enforces kernel-level audit tokens (`LOCAL_PEERTOKEN`) and cryptographic code signatures.
-- **In-Process Privilege Isolation (Option A):** All disk access, mail parsing, and Keychain secrets remain strictly confined within the AETHER host process. The UI presentation layer (`Aether.droplet`) runs as a sandboxed plug-in inside Droppy with zero disk or credential access.
+- **Mutual Kernel Peer Authentication:** Cross-process communication between the AETHER engine and Droppy enforces kernel-level audit tokens (`LOCAL_PEERTOKEN`) and cryptographic code signatures (`SecCodeCheckValidity`).
+- **Host/Droplet Privilege Separation (Option A):** All Full Disk Access (FDA), mailbox reads, OAuth credentials, and Keychain secrets remain strictly inside the AETHER host process. The UI presentation plug-in (`AETHER.droplet`) is dynamically loaded (`dlopen`) into the `Droppy.app` process (`iordv.Droppy`) and receives only ephemeral OTP event payloads over the local Unix Domain Socket. Note that `AETHER.droplet` shares Droppy's process address space and entitlements and is **not** an independent macOS App Sandbox.
 - **Modern Swift Concurrency:** Fully asynchronous, actor-isolated architecture without blocking thread pools or busy-wait polling.
 
 ---
@@ -59,12 +59,12 @@ AETHER adopts **Option A (In-Process Engine + Separate Droppy UI Client)**:
 |        ▼                                                                          |
 |  [ Droppy Host Application ] (iordv.Droppy, Team ID: NARHG44L48)                  |
 |  ├── Droplet Host & Notch HUD Management                                          |
-|  └── Loads Aether.droplet Bundle                                                  |
-|        ├── AetherPrincipal & AetherDroplet (Swift 6 resilient ABI)                |
+|  └── Loads AETHER.droplet Bundle                                                  |
+|        ├── AETHERPrincipal & AetherDroplet (Swift 6 resilient ABI, HUDPresenting)    |
 |        ├── AetherIPCClientTransport (Actor)                                       |
 |        │     └── Validates Server Audit Token (identifier "com.uros.codecatch")   |
-|        └── On Event -> Presents DropletHUDCard & emits .displayed ACK             |
-|              └── On "Copy" Button -> host.workspace.copyToPasteboard(code)        |
+|        └── On Event -> Presents OTP HUD Card & emits .displayed ACK               |
+|              └── On "Copy Code" Button -> host.workspace.copyToPasteboard(code)   |
 |                    └── Emits .copied ACK to Host Transport                        |
 |                                                                                   |
 +-----------------------------------------------------------------------------------+
@@ -76,13 +76,15 @@ AETHER adopts **Option A (In-Process Engine + Separate Droppy UI Client)**:
 
 Communication between the host and droplet occurs over a local Unix Domain Socket (UDS) protected by multiple defense layers:
 
-1. **Kernel Audit Tokens (`LOCAL_PEERTOKEN`):** Both sides query Darwin kernel credentials using `getsockopt(fd, SOL_LOCAL, LOCAL_PEERTOKEN)`. Userland process forgery is impossible.
-2. **Security Framework Code Signing:**
+1. **Kernel Audit Tokens (`LOCAL_PEERTOKEN`):** Both sides query Darwin kernel credentials using `getsockopt(fd, SOL_LOCAL, LOCAL_PEERTOKEN)`. Userland process forgery is prevented by the kernel.
+2. **Security Framework Code Signing (Process-Level Identity):**
    - **Host verifies Droppy:** Enforces `anchor apple generic and identifier "iordv.Droppy" and certificate leaf[subject.OU] = "NARHG44L48"`.
    - **Droplet verifies Host:** Enforces `anchor apple generic and identifier "com.uros.codecatch"`.
+   - **Process Trust Boundary:** Darwin peer authentication identifies the **`Droppy.app` process** as a whole (`iordv.Droppy`), not individual droplets inside it. Because all enabled Droppy droplets share `Droppy.app`'s address space and security context (`Droplet` does not run in an independent macOS App Sandbox), any co-loaded droplet or plugin inside `Droppy.app` shares the same runtime permissions.
 3. **POSIX DAC & Filesystem Race Resistance:**
    - Socket directory `~/Library/Application Support/Aether` is enforced to mode `0700` owned by `getuid()`.
    - Ephemeral 256-bit session token is regenerated on every launch, stored with mode `0600`, and validated against inode/device swaps before unlinking.
+   - **POSIX Scope Note:** Mode `0700`/`0600` POSIX permissions prevent access from other macOS user accounts (different UIDs), **not** from other processes running under the same user UID (which the droplet client itself relies on to read `session.token`). Same-UID protection relies primarily on Darwin kernel audit token validation above.
    - Advisory locking (`flock`) on `droplet.sock.lock` prevents dual-instance conflicts.
 4. **Bounded Framing & DoS Resistance:**
    - Wire frames are prefixed with a 4-byte big-endian length header strictly capped at 4,096 bytes (4,100 bytes wire limit).
@@ -122,8 +124,10 @@ $ pbpaste
 
 - **Operating System:** macOS 15.0 (Sequoia) or later
 - **Architecture:** Apple Silicon (`arm64` / Apple M-series)
-- **Toolchain:** Swift 5.10+ / Swift 6.0+ (Xcode Command Line Tools or Xcode 16+)
-- **Optional Companion:** [Droppy](https://getdroppy.app) for Dynamic Island / notch HUD card presentation
+- **Toolchain:**
+  - `AetherCore` and `CodeCatchCore` build cleanly with Apple Command Line Tools / Swift 6.x toolchain.
+  - The full host application (`CodeCatch`) uses macOS 26 SDK SwiftUI APIs (`#available(macOS 26, *)`) in `CodeRow.swift`, and official `DroppyKit` (`SwiftUIMacros`) + `droppykit build`/`run` require **Xcode 26+ SDK** (provided automatically on GitHub-hosted `macos-15` CI runners).
+- **Optional Companion:** [Droppy](https://getdroppy.app) (`15.3+`, DroppyKit API `1.12.0+`, including Droppy Playground and Droppy 16.x) for Dynamic Island / notch HUD card presentation.
 
 ---
 
@@ -131,13 +135,15 @@ $ pbpaste
 
 ```
 Aether/
-├── Droplet/                       # Droppy droplet plug-in bundle
-│   ├── Aether/
-│   │   ├── Info.plist             # Bundle metadata & principal class definition
-│   │   ├── droplet.json           # Droplet manifest (HUD & clipboard capabilities)
-│   │   └── Sources/
-│   │       └── AetherDroplet.swift# Droplet implementation & HUD card presentation
-│   └── DroppyKitInterface.swift   # Resilient ABI declarations for DroppyKit SDK
+├── Droplet/                       # Official DroppyKit SwiftPM droplet package
+│   ├── Package.swift              # Dynamic AETHER library + DroppyKit SDK dependency (>= 1.12.0)
+│   ├── droplet.json               # Official Droplet manifest (HUD & clipboard capabilities)
+│   ├── Assets/Creator.png         # Community creator mark (512x512 square PNG)
+│   ├── LICENSE & NOTICE.md        # GPLv3 license & upstream attribution
+│   └── Sources/
+│       ├── AETHER/AetherDroplet.swift       # AETHERPrincipal, HUDPresenting & OTP HUD view
+│       ├── AETHERHarness/AETHERHarness.swift# Official DropletHarnessApp target
+│       └── AetherIPC/                       # Synchronized protocol/codec/transport sources
 ├── Sources/
 │   ├── AetherCore/                # Extracted headless verification engine
 │   │   ├── Codec/                 # Length-prefixed frame encoder & decoder
@@ -153,9 +159,9 @@ Aether/
 │   ├── AetherCoreTests/           # Client/server transport, codec & security tests
 │   ├── CodeCatchCoreTests/        # 704 OTP regex fixture test suites
 │   └── CodeCatchTests/            # macOS integration & provider test suites
-├── docs/                          # Architectural reports & security audit records
+├── docs/                          # Architectural reports, security audits & README-TESTING.md
 ├── scripts/
-│   ├── build-droplet.sh           # Reproducible droplet build & install script
+│   ├── build-droplet.sh           # Official DroppyKit build/validate & safe staged installer
 │   ├── test.sh                    # Full workspace test suite runner
 │   └── install.sh                 # Production packaging tool
 ├── NOTICE.md                      # Upstream attribution & modification history
@@ -166,36 +172,38 @@ Aether/
 
 ## 8. Build & Test Instructions
 
-### Building the Host Application
+### Building Locally or via GitHub Actions
 
-No Xcode IDE installation is required; the standard Apple Command Line Tools provide everything needed:
+GitHub Actions builds the entire workspace — including the official universal `AETHER.droplet` artifact (`AETHER-Droplet.zip`) and `DroppyKitHarness` report — without requiring Xcode installed on your personal machine:
 
 ```bash
 # Resolve dependencies
 swift package resolve
 
-# Build AetherCore engine
+# Build AetherCore engine (CLT compatible)
 swift build --target AetherCore
 
-# Build host application (Release)
+# Build host application in Release (requires macOS 26 SDK / Xcode 26+)
 swift build -c release --scratch-path .build-release
 ```
 
 ### Building & Installing the AETHER Droplet
 
-The droplet build script assembles the resilient SDK interface, compiles the Apple Silicon Mach-O dynamic library, packages the `.droplet` bundle, and applies an ad-hoc code signature:
+`scripts/build-droplet.sh` wraps the official [DroppyKit](https://gitlab.com/droppyformac1/droppykit) CLI (`droppykit build` and `droppykit validate`) with staged atomic replacement and rollback:
 
 ```bash
-# Build droplet bundle to Droplet/.build/Aether.droplet
-./scripts/build-droplet.sh
+# Build universal (arm64 + x86_64) AETHER.droplet (requires Xcode 26+ & official DroppyKit)
+DROPPYKIT_DIR=/path/to/droppykit ./scripts/build-droplet.sh
 
-# Build and install directly into Droppy (if Droppy is installed locally)
-./scripts/build-droplet.sh --install
+# Safely stage and install a built bundle or CI artifact (preserves .AETHER.droplet.previous; never disables approvals)
+./scripts/build-droplet.sh --install --bundle /path/to/AETHER.droplet
 ```
+
+See [`docs/README-TESTING.md`](docs/README-TESTING.md) for Droppy Playground and Droppy approval/testing steps.
 
 ### Running the Test Suite
 
-Run all 331 tests across all 26 suites:
+Run the full workspace test suite:
 
 ```bash
 ./scripts/test.sh --force-resolved-versions
@@ -212,8 +220,10 @@ swift test --filter CodeExtractorTests
 ## 9. Known Limitations
 
 1. **Phase 3F Milestone:** Live background provider monitoring (Apple Mail SQLite, Messages DB, and IMAP) currently flows into the existing host menu bar UI; routing live provider events into the Droppy IPC transport is the primary objective of Phase 4.
-2. **Droppy Companion Requirement:** Notch and Dynamic Island visual cards require the [Droppy](https://getdroppy.app) application. When Droppy is not running, the AETHER engine operates in headless mode without error.
-3. **Distribution Signing:** Droplet bundles built via `scripts/build-droplet.sh` use ad-hoc code signatures suitable for local development and CI verification. Official public redistribution requires Developer ID signing and notarization.
+2. **Shared Droppy Process Trust Boundary:** `AETHER.droplet` is dynamically loaded (`dlopen`) into `Droppy.app` and shares its address space and entitlements with Droppy and any other installed droplets. It is not an isolated macOS App Sandbox. IPC peer authentication validates the `Droppy.app` process (`iordv.Droppy`), not an individual droplet within it.
+3. **CI vs. Live Droppy.app Runtime:** GitHub Actions compiles `AETHER.droplet` against the genuine pinned official DroppyKit SDK (`v1.23.0`), validates linkage/manifest/ABI compliance (`droppykit validate`), and runs the headless `DroppyKitHarness` (`droppykit run -- --shots ... --report ...`). Live UDS/HUD verification inside `Droppy.app` (`15.3+` / `16.x`, DroppyKit API `1.12.0+`) requires running AETHER and Droppy together on macOS hardware.
+4. **Droppy Companion Requirement:** Notch and Dynamic Island visual cards require the [Droppy](https://getdroppy.app) application. When Droppy is not running, the AETHER engine operates in headless mode without error.
+5. **Distribution Signing:** Official `droppykit build` CI bundles are unsigned (compatible with Droppy Playground and Droppy's explicit approval flow); public Store/Sparkle redistribution requires Developer ID signing and Apple notarization.
 
 ---
 

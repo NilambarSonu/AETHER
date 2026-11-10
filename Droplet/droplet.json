@@ -1,0 +1,41 @@
+{
+  "id": "aether",
+  "name": "AETHER",
+  "version": "1.0.0",
+  "summary": "Live verification codes from AETHER in the Droppy notch",
+  "description": "Presents ephemeral verification codes delivered by the local AETHER host application over an authenticated Unix Domain Socket directly in the Droppy HUD, with one-click clipboard copy.\n\nSensitive source access (Full Disk Access, Apple Mail, Messages, IMAP credentials, Keychain secrets, and OAuth tokens) remains strictly inside the AETHER host application. This droplet receives only the service label, verification code, and expiration timestamp needed to display the HUD.",
+  "category": "System",
+  "kit": {
+    "abi": 1,
+    "minAPI": "1.12.0"
+  },
+  "minAppVersion": "15.3.0",
+  "minMacOS": "15.0",
+  "capabilities": [
+    "hud",
+    "clipboard-write"
+  ],
+  "surfaces": [
+    "hud"
+  ],
+  "icon": "AETHER.icon",
+  "creator": {
+    "name": "Nilambar Behera",
+    "kind": "community",
+    "url": "https://github.com/NilambarSonu/AETHER",
+    "avatar": "Creator.png"
+  },
+  "source": {
+    "repository": "https://github.com/NilambarSonu/AETHER",
+    "license": "GPL-3.0"
+  },
+  "screenshots": [],
+  "keywords": [
+    "otp",
+    "verification",
+    "code",
+    "2fa",
+    "security",
+    "aether"
+  ]
+}

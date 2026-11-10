@@ -1,6 +1,6 @@
 # Architecture and Privacy Boundaries
 
-AETHER implements **Option A (In-Process Engine with Droplet UI Bridge)**. Sparkle is the only external package dependency; its resolved version is pinned.
+AETHER implements **Option A (In-Process Engine with Droplet UI Bridge)**. Sparkle is the host package's external dependency (`Droplet/` consumes official `DroppyKit` separately); resolved versions are pinned.
 
 | Target / Bundle | Type | What it holds |
 |---|---|---|
@@ -8,7 +8,7 @@ AETHER implements **Option A (In-Process Engine with Droplet UI Bridge)**. Spark
 | `CodeCatchCore` | Swift Package Target | Code extraction regex engine, MIME parsing, service identifiers, sign-in link handlers, and TOTP algorithms. No UI, no network, no account access. |
 | `CodeCatch` | Swift Package Target (App) | The host application: macOS adapters, orchestration, local SQLite database watchers, IMAP client, and menu bar popover. |
 | `CodeCatchCLI` | Swift Package Target (CLI) | `codecatch`, the local CLI tool for local verification lookups. |
-| `Aether.droplet` | Plug-in Bundle (`.droplet`) | Standalone dynamic island / notch HUD plug-in loaded by Droppy (`iordv.Droppy`). Connects to `AetherIPCTransportServer` over UDS and renders ephemeral OTP notification cards with automatic pasteboard copying. |
+| `AETHER.droplet` | Plug-in Bundle (`.droplet`) | Dynamic island / notch HUD plug-in dynamically loaded (`dlopen`) inside the `Droppy.app` process (`iordv.Droppy`). Shares Droppy's process address space and security context (not an independent OS sandbox). Connects to `AetherIPCTransportServer` over UDS and presents ephemeral OTP HUD cards. |
 
 Inside `Sources/CodeCatch`:
 
@@ -111,6 +111,15 @@ sends its token to the chosen destination. Apart from that install count, there
 is no app analytics or crash-upload pipeline. The public
 [privacy page](site/privacy/index.html) must stay consistent with implementation
 changes.
+
+## Droppy Bridge & Trust Boundaries (Option A)
+
+AETHER delegates HUD rendering to `AETHER.droplet`, running inside the external `Droppy.app` process (`iordv.Droppy`, Team `NARHG44L48`):
+
+- **Host Privilege Isolation:** Sensitive source access (Full Disk Access, Apple Mail SQLite, Messages DB, IMAP credentials, OAuth tokens, and login Keychain) remains exclusively in the AETHER host process. `AETHER.droplet` receives only ephemeral `AetherOTPPayload` events (service name, OTP code, and expiration) over UDS (`~/Library/Application Support/Aether/droplet.sock`).
+- **Droppy Process Context (Not an Independent Sandbox):** `AETHER.droplet` is loaded into `Droppy.app` via `dlopen`. It shares `Droppy.app`'s address space, entitlements, and security context alongside any other enabled droplets. As `Droplet` does not execute in a separate OS sandbox, `AetherDroplet` accesses the user's `~/Library/Application Support/Aether/session.token` file under `Droppy.app`'s UID/permissions.
+- **Process-Level IPC Authentication:** `AetherIPCTransportServer` validates `Droppy.app` using Darwin kernel audit tokens (`LOCAL_PEERTOKEN`) and `SecCodeCheckValidity` against `iordv.Droppy` (Team `NARHG44L48`). Conversely, `AetherIPCClientTransport` validates the host via `com.uros.codecatch`. Kernel peer authentication verifies the **Droppy process as a whole**, not individual droplets inside Droppy.
+- **Residual Risks:** POSIX mode `0700`/`0600` directories and token files prevent access by other macOS user accounts (UID isolation), not same-UID processes. Same-UID isolation on the socket relies on `LOCAL_PEERTOKEN` code-signature validation; any co-loaded malicious droplet running inside `Droppy.app` shares Droppy's address space and socket access.
 
 ## Verification and releases
 
