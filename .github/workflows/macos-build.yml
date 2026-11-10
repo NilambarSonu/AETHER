@@ -146,22 +146,34 @@ jobs:
 
       - name: Stage Clean Droplet Artifact Directory
         run: |
-          rm -rf .build-droplet-dist
-          ./scripts/build-droplet.sh --stage-dist .build-droplet-dist --bundle Droplet/.build/AETHER.droplet
+          rm -rf build-droplet-dist
+          ./scripts/build-droplet.sh --stage-dist build-droplet-dist --bundle Droplet/.build/AETHER.droplet
 
           echo "==> Verifying extracted ZIP root layout (AETHER.droplet/ + README-TESTING.md ONLY)..."
-          ls -la .build-droplet-dist
+          ls -la build-droplet-dist
           TMP_ZIP="$RUNNER_TEMP/verify-AETHER-Droplet.zip"
           rm -f "$TMP_ZIP"
-          (cd .build-droplet-dist && zip -qr "$TMP_ZIP" AETHER.droplet README-TESTING.md)
+          (cd build-droplet-dist && zip -qr "$TMP_ZIP" AETHER.droplet README-TESTING.md)
           python3 - "$TMP_ZIP" <<'PY'
-          import subprocess, sys
+          import pathlib, subprocess, sys
+
+          dist_root = pathlib.Path("build-droplet-dist")
+          disk_top_level = sorted(p.name for p in dist_root.iterdir())
+          assert disk_top_level == ["AETHER.droplet", "README-TESTING.md"], f"Unexpected staged root entries: {disk_top_level}"
+          hidden_entries = [str(p) for p in dist_root.rglob("*") if p.name.startswith(".")]
+          assert not hidden_entries, f"Unexpected hidden entries in staged directory: {hidden_entries}"
+
           entries = subprocess.run(["unzip", "-Z1", sys.argv[1]], capture_output=True, text=True, check=True).stdout.splitlines()
           top_level = sorted({e.split("/")[0] for e in entries if e})
           assert top_level == ["AETHER.droplet", "README-TESTING.md"], f"Unexpected ZIP root entries: {top_level}"
-          assert "AETHER.droplet/Contents/MacOS/AETHER" in entries
-          assert "AETHER.droplet/Contents/Info.plist" in entries
-          assert "AETHER.droplet/Contents/Resources/droplet.json" in entries
+          for required in (
+              "AETHER.droplet/Contents/MacOS/AETHER",
+              "AETHER.droplet/Contents/Info.plist",
+              "AETHER.droplet/Contents/Resources/droplet.json",
+              "README-TESTING.md",
+          ):
+              assert required in entries, f"Missing ZIP entry: {required}"
+              assert (dist_root / required).stat().st_size > 0, f"Empty staged file: {required}"
           print("Verified clean ZIP layout; top-level entries:", top_level)
           PY
           rm -f "$TMP_ZIP"
@@ -170,7 +182,8 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: AETHER-Droplet
-          path: .build-droplet-dist
+          path: build-droplet-dist
+          if-no-files-found: error
           retention-days: 14
 
       - name: Upload DroppyKit Harness Report & Screenshots
@@ -178,6 +191,7 @@ jobs:
         with:
           name: AETHER-Harness-Shots
           path: Droplet/shots
+          if-no-files-found: error
           retention-days: 14
 
       - name: Upload Host Release Binaries
@@ -187,4 +201,5 @@ jobs:
           path: |
             .build-release/release/CodeCatch
             .build-release/release/CodeCatchCLI
+          if-no-files-found: error
           retention-days: 14

@@ -1,5 +1,6 @@
 .build/
 .build-release/
+build-droplet-dist/
 Droplet/.build/
 .DS_Store
 site/download/*.dmg
