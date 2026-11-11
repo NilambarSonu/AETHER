@@ -25,33 +25,24 @@ struct BitwardenSettingsPage: View {
                 settingsSectionHeader("Bitwarden CLI status")
             } content: {
                 DropletSettingsCard {
-                    DropletControlRow(
+                    AetherSettingsControlRow(
                         title: "Bitwarden CLI (bw)",
+                        subtitle: cliStatus.version.map { "v\($0) · \(cliStatus.email ?? cliStatus.state)" }
+                            ?? "Not detected (install via `brew install bitwarden-cli`)",
                         icon: cliStatus.version != nil ? "checkmark.circle.fill" : "exclamationmark.triangle.fill",
                         iconColor: cliStatus.version != nil ? .green : .orange,
-                        infoTip: "AETHER invokes the local Bitwarden CLI strictly when you click Import."
+                        infoTip: "AETHER invokes the Bitwarden CLI strictly on demand during import."
                     ) {
-                        HStack(spacing: 8) {
-                            if let version = cliStatus.version {
-                                Text("v\(version) · \(cliStatus.email ?? cliStatus.state)")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            } else {
-                                Text("Not found (install with `brew install bitwarden-cli`)")
-                                    .font(.caption)
-                                    .foregroundStyle(.orange)
-                            }
-                            Button(isCheckingStatus ? "Checking…" : "Refresh") {
-                                Task { await refreshStatus() }
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                            .disabled(isCheckingStatus)
+                        Button(isCheckingStatus ? "Checking…" : "Refresh") {
+                            Task { await refreshStatus() }
                         }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .disabled(isCheckingStatus)
                     }
 
                     if cliStatus.version != nil {
-                        DropletControlRow(
+                        AetherSettingsControlRow(
                             title: "Server region",
                             icon: "globe",
                             iconColor: .blue,
@@ -85,11 +76,11 @@ struct BitwardenSettingsPage: View {
             } content: {
                 DropletSettingsCard {
                     if cliStatus.state != "unlocked" {
-                        DropletControlRow(
+                        AetherSettingsControlRow(
                             title: "Master password",
                             icon: "lock.fill",
                             iconColor: .indigo,
-                            infoTip: "Used once to unlock bw CLI during import and never written to disk."
+                            infoTip: "Used once in memory to unlock bw CLI during import and cleared immediately afterward."
                         ) {
                             SecureField("Required unless session key provided", text: $masterPassword)
                                 .textFieldStyle(.roundedBorder)
@@ -97,22 +88,22 @@ struct BitwardenSettingsPage: View {
                         }
                     }
 
-                    DropletControlRow(
+                    AetherSettingsControlRow(
                         title: "Session key (optional)",
                         icon: "key.horizontal.fill",
                         iconColor: .gray,
-                        infoTip: "Optional BW_SESSION token from `bw unlock --raw` if you prefer not entering your master password."
+                        infoTip: "Optional BW_SESSION token from `bw unlock --raw`."
                     ) {
                         SecureField("BW_SESSION token", text: $sessionKey)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 240)
                     }
 
-                    DropletControlRow(
+                    AetherSettingsControlRow(
                         title: "Import authenticator items",
+                        subtitle: "Seals TOTP seeds with AES-256-GCM inside your macOS Keychain.",
                         icon: "arrow.down.doc.fill",
-                        iconColor: .blue,
-                        infoTip: "Syncs Bitwarden items containing TOTP secrets and stores only those TOTP keys in your macOS Keychain."
+                        iconColor: .blue
                     ) {
                         Button(isImporting ? "Importing…" : "Import TOTP Codes") {
                             Task { await importCodes() }
@@ -125,29 +116,29 @@ struct BitwardenSettingsPage: View {
 
             if model.hasVault {
                 DropletSettingsSection {
-                    settingsSectionHeader("Saved vault keys")
+                    settingsSectionHeader("Encrypted vault keys")
                 } content: {
                     DropletSettingsCard {
-                        DropletControlRow(
+                        AetherSettingsControlRow(
                             title: "Imported authenticator entries",
                             icon: "key.viewfinder",
                             iconColor: .green
                         ) {
                             Text(model.vaultSession.isUnlocked ? "\(model.vault.count) logins with TOTP" : "Locked (unlock to view)")
-                                .font(.caption)
+                                .font(.callout)
                                 .foregroundStyle(.secondary)
                         }
 
-                        DropletControlRow(
+                        AetherSettingsControlRow(
                             title: "Delete saved Bitwarden keys",
                             icon: "trash.fill",
                             iconColor: .red,
-                            infoTip: "Deletes AETHER's Keychain copy only. Your Bitwarden vault is untouched."
+                            infoTip: "Deletes AETHER's Keychain copy only. Your Bitwarden account is untouched."
                         ) {
                             Button("Remove Saved Keys…") {
                                 let confirmed = DropletConfirmationDialog.present(
                                     title: "Remove Bitwarden TOTP keys from AETHER?",
-                                    message: "This deletes the TOTP secrets imported into AETHER's Keychain. Your Bitwarden account and vault are unchanged.",
+                                    message: "This wipes the encrypted TOTP secrets imported into AETHER's Keychain. Your Bitwarden vault stays unchanged.",
                                     confirmTitle: "Remove Keys",
                                     symbol: "trash.fill"
                                 )
@@ -186,7 +177,7 @@ struct BitwardenSettingsPage: View {
 
             if let errorMessage {
                 DropletSettingsSection {
-                    settingsSectionHeader("Error")
+                    settingsSectionHeader("Attention")
                 } content: {
                     DropletSettingsCard {
                         AetherWarningRow(message: errorMessage)
@@ -196,6 +187,10 @@ struct BitwardenSettingsPage: View {
         }
         .task {
             await refreshStatus()
+        }
+        .onDisappear {
+            masterPassword = ""
+            sessionKey = ""
         }
     }
 
@@ -251,11 +246,11 @@ struct IgnoredSendersSettingsPage: View {
                 settingsSectionHeader("Add sender or domain")
             } content: {
                 DropletSettingsCard {
-                    DropletControlRow(
-                        title: "Sender, phone number, or domain",
+                    AetherSettingsControlRow(
+                        title: "Sender, number, or domain",
                         icon: "nosign",
                         iconColor: .gray,
-                        infoTip: "Messages and emails matching these senders are skipped cleanly."
+                        infoTip: "Messages and emails from matching senders are ignored cleanly."
                     ) {
                         HStack(spacing: 8) {
                             TextField("noreply@example.com or example.com", text: $newSender)
@@ -281,10 +276,10 @@ struct IgnoredSendersSettingsPage: View {
                         )
                     } else {
                         ForEach(model.ignoredSenders, id: \.self) { sender in
-                            DropletControlRow(
+                            AetherSettingsControlRow(
                                 title: sender,
                                 icon: "person.crop.circle.badge.xmark",
-                                iconColor: .secondary
+                                iconColor: .gray
                             ) {
                                 Button("Restore") {
                                     model.stopIgnoring([sender])
@@ -294,9 +289,9 @@ struct IgnoredSendersSettingsPage: View {
                             }
                         }
 
-                        DropletControlRow(
+                        AetherSettingsControlRow(
                             title: "Restore all senders",
-                            icon: "arrow.uturn.backward.circle",
+                            icon: "arrow.uturn.backward.circle.fill",
                             iconColor: .blue
                         ) {
                             Button("Restore All…") {
@@ -337,31 +332,27 @@ struct NotCodesSettingsPage: View {
                 DropletSettingsCard {
                     if model.notCodes.isEmpty {
                         AetherWarningRow(
-                            message: "No patterns marked as \"Not a Code\". Mark any false positive from a code row's context menu.",
+                            message: "No patterns marked as \"Not a Code\". Mark false positives from any code row's context menu.",
                             calm: true
                         )
                     } else {
                         ForEach(model.notCodes) { rule in
-                            DropletControlRow(
+                            AetherSettingsControlRow(
                                 title: rule.sender.isEmpty ? rule.key : rule.sender,
+                                subtitle: rule.added.formatted(.relative(presentation: .named)),
                                 icon: "xmark.seal.fill",
-                                iconColor: .secondary,
+                                iconColor: .gray,
                                 infoTip: "Rule key: \(rule.key)"
                             ) {
-                                HStack(spacing: 8) {
-                                    Text(rule.added.formatted(.relative(presentation: .named)))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                    Button("Forget") {
-                                        model.forgetNotCodes([rule.key])
-                                    }
-                                    .buttonStyle(.bordered)
-                                    .controlSize(.small)
+                                Button("Forget") {
+                                    model.forgetNotCodes([rule.key])
                                 }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
                             }
                         }
 
-                        DropletControlRow(
+                        AetherSettingsControlRow(
                             title: "Forget all rules",
                             icon: "trash.fill",
                             iconColor: .gray

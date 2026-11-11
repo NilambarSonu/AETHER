@@ -17,10 +17,9 @@ public final class AETHERPrincipal: NSObject, DropletPrincipal {
 }
 
 /// Standalone AETHER droplet providing local OTP/link monitoring (Messages, Apple Mail, Gmail,
-/// Outlook, IMAP), Bitwarden TOTP import, privacy/clipboard safeguards, Settings UI inside Droppy
-/// Settings (`SettingsPagesProviding`), Notch Shelf widget (`ShelfWidgetCompositionProviding`),
-/// Command Center panel (`MenuBarExtraProviding`), HUD/banner alerts (`HUDPresenting`), ephemeral
-/// notch live activity (`LiveActivityProviding`), and native Droppy MCP tools (`MCPToolProviding`).
+/// Outlook, IMAP), Bitwarden TOTP import, AES-256-GCM encrypted Keychain secrets, Touch ID
+/// protection, branded notch HUD/banner delivery, Notch Shelf widget, Command Center tile,
+/// compact live activity chip, and Droppy MCP tools.
 @MainActor
 public final class AetherDroplet:
     ObservableObject,
@@ -129,8 +128,8 @@ public final class AetherDroplet:
 
     public var settingsSearchEntries: [SettingsSearchEntry] {
         [
-            SettingsSearchEntry(title: "General notifications & auto-copy", keywords: ["banner", "hud", "clipboard", "auto-type", "shortcuts", "sound"]),
-            SettingsSearchEntry(title: "Mail & Messages sources", keywords: ["messages", "imessage", "sms", "apple mail", "gmail", "outlook", "icloud", "yahoo", "imap", "oauth"]),
+            SettingsSearchEntry(title: "General delivery, auto-copy & shortcuts", keywords: ["banner", "hud", "clipboard", "auto-type", "shortcuts", "sound"]),
+            SettingsSearchEntry(title: "Mail, Messages & OAuth accounts", keywords: ["messages", "imessage", "sms", "apple mail", "gmail", "outlook", "icloud", "yahoo", "imap", "oauth"]),
             SettingsSearchEntry(title: "Bitwarden TOTP authenticator", keywords: ["bitwarden", "totp", "bw", "vault", "authenticator"]),
             SettingsSearchEntry(title: "Privacy, Touch ID & history", keywords: ["touch id", "lock", "screen capture", "blur", "clipboard", "history", "icons"]),
             SettingsSearchEntry(title: "AI agents & Droppy MCP", keywords: ["mcp", "claude", "codex", "cursor", "agent", "rules", "log"]),
@@ -260,6 +259,17 @@ public final class AetherDroplet:
                     .foregroundStyle(.orange)
             )
         }
+        if model.isUnlocked, let code = activeCodeForLiveActivity {
+            return AnyView(
+                AetherServiceAvatar(
+                    item: code,
+                    icons: model.icons,
+                    model: model,
+                    size: 18,
+                    showsOriginBadge: false
+                )
+            )
+        }
         return AnyView(
             Image(systemName: "key.viewfinder")
                 .font(.system(size: DroppyLiveActivityMetrics.iconSize, weight: .semibold))
@@ -272,7 +282,7 @@ public final class AetherDroplet:
             let site = item.domain ?? pending.query.label
             return AnyView(
                 Text(verbatim: site)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: DroppyLiveActivityMetrics.labelFontSize, weight: .semibold))
                     .lineLimit(1)
             )
         }
@@ -282,7 +292,7 @@ public final class AetherDroplet:
                 : AetherNotificationBridge.formatCode(code.code)
             return AnyView(
                 Text(verbatim: text)
-                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                    .font(.system(size: DroppyLiveActivityMetrics.labelFontSize, weight: .semibold, design: .monospaced))
                     .monospacedDigit()
                     .lineLimit(1)
             )
@@ -342,11 +352,19 @@ public final class AetherDroplet:
     }
 
     func setWidgetVisible(_ visible: Bool) {
+        let becameVisible = !widgetVisible && visible
         widgetVisible = visible
+        if becameVisible {
+            model.boostSources()
+        }
     }
 
     func setPopoverVisible(_ visible: Bool) {
+        let becameVisible = !popoverVisible && visible
         popoverVisible = visible
+        if becameVisible {
+            model.boostSources()
+        }
     }
 
     // MARK: - Private Wiring
@@ -400,7 +418,7 @@ public final class AetherDroplet:
             return self.widgetVisible || self.popoverVisible
         }
         target.hooks.appVersion = {
-            Bundle(for: AETHERPrincipal.self).object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "2.0.0"
+            Bundle(for: AETHERPrincipal.self).object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "2.1.0"
         }
     }
 

@@ -1,7 +1,7 @@
 {
   "id": "aether",
   "name": "AETHER",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "summary": "Verification codes, sign-in links, and 2FA in Droppy",
   "description": "Standalone 2FA verification code, sign-in link, and TOTP authenticator droplet for Droppy — delivering full CodeCatch parity directly inside Droppy with zero companion app.\n\nWatches Messages, Apple Mail, Gmail (OAuth PKCE), Outlook / Microsoft 365 (OAuth PKCE), iCloud, Yahoo, and IMAP mailboxes locally on your Mac, imports Bitwarden TOTP codes, enforces Touch ID / password protection, delivers arriving codes in Droppy's banner stack and notch HUD, exposes codes in Command Center and the Notch Shelf, and gates AI agent requests through Droppy MCP.",
   "category": "System",

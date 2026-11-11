@@ -44,6 +44,7 @@ final class AetherNotificationBridge {
         let blur = model.isOn(AetherPrefs.blurCodes)
 
         let formattedCode = Self.formatCode(item.code)
+        let senderSuffix = (showPreviews && !item.sender.isEmpty) ? " · \(item.sender)" : ""
         let title: String
         let body: String
         let actions: [DropletNotificationAction]
@@ -55,7 +56,7 @@ final class AetherNotificationBridge {
                 body = "Locked — click Open to unlock with Touch ID or your password."
             } else if showPreviews {
                 let hostText = item.destination?.host ?? item.service
-                body = "\(hostText) · \(item.preview)"
+                body = "\(hostText)\(senderSuffix) · \(item.preview)"
             } else {
                 body = item.destination?.host ?? kindTitle
             }
@@ -64,7 +65,7 @@ final class AetherNotificationBridge {
                 DropletNotificationAction(id: "copy-link", title: "Copy Link"),
             ]
         } else {
-            title = item.service
+            title = item.service + senderSuffix
             if !unlocked {
                 body = "Locked — click Copy to unlock with Touch ID or your password."
             } else if blur {
@@ -80,12 +81,22 @@ final class AetherNotificationBridge {
             ]
         }
 
+        let symbol: String = {
+            if item.isLink { return item.resetsPassword ? "lock.rotation" : "link" }
+            switch item.origin {
+            case .messages: return "message.badge.filled.fill"
+            case .mail: return "envelope.badge.shield.half.filled"
+            case .vault: return "key.fill"
+            case .test: return "checkmark.seal.fill"
+            }
+        }()
+
         _ = host.notifications.post(DropletNotification(
             id: notificationID,
             threadID: "aether-codes",
             title: title,
             body: body,
-            systemImage: item.isLink ? "link" : "key.viewfinder",
+            systemImage: symbol,
             actions: actions
         ))
     }
@@ -202,14 +213,20 @@ final class AetherNotificationBridge {
         }
     }
 
-    private static func codeNotificationID(for id: UUID) -> String { "aether-code-\(id.uuidString)" }
-    private static let agentNotificationID = "aether-agent-approval"
-    private static let agentNoticeID = "aether-agent-notice"
-
     static func formatCode(_ code: String) -> String {
-        if code.count == 6, code.allSatisfy(\.isNumber) {
-            return "\(code.prefix(3)) \(code.suffix(3))"
+        let clean = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard clean.count == 6 || clean.count == 8, clean.allSatisfy(\.isNumber) else {
+            return clean
         }
-        return code
+        let mid = clean.count / 2
+        let index = clean.index(clean.startIndex, offsetBy: mid)
+        return "\(clean[..<index]) \(clean[index...])"
     }
+
+    private static func codeNotificationID(for itemID: UUID) -> String {
+        "aether-code-\(itemID.uuidString)"
+    }
+
+    private static let agentNotificationID = "aether-agent-approval"
+    private static let agentNoticeID = "aether-agent-shared"
 }

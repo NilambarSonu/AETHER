@@ -70,6 +70,10 @@ struct AetherShelfWidgetView: View {
                 }
             }
 
+            Button("Refresh", systemImage: "arrow.clockwise") {
+                model.boostSources()
+            }
+
             Button("Settings", systemImage: "gearshape") {
                 _ = droplet.openSettings()
             }
@@ -162,7 +166,7 @@ struct AetherShelfWidgetView: View {
         if model.isUnlocked, let latest = model.latestCode {
             controls.append(
                 ShelfWidgetControl("Copy Latest", systemImage: "doc.on.doc", tone: .accent(.blue)) {
-                    model.copy(latest, userInitiated: true)
+                    triggerPrimaryAction(latest)
                 }
             )
         } else if !model.isUnlocked {
@@ -244,9 +248,14 @@ struct AetherShelfWidgetView: View {
             triggerPrimaryAction(item)
         } label: {
             HStack(spacing: 8) {
-                if !compact {
-                    AetherServiceAvatar(item: item, icons: model.icons, model: model, size: 24)
-                }
+                AetherServiceAvatar(
+                    item: item,
+                    icons: model.icons,
+                    model: model,
+                    size: compact ? 20 : 26,
+                    showsOriginBadge: !compact
+                )
+
                 VStack(alignment: .leading, spacing: 1) {
                     HStack(spacing: 5) {
                         Text(verbatim: item.service)
@@ -261,11 +270,15 @@ struct AetherShelfWidgetView: View {
                                 .lineLimit(1)
                         }
                     }
-                    if !compact && showPreviews && !item.preview.isEmpty {
-                        Text(verbatim: item.preview)
-                            .font(metrics.font(.caption))
-                            .foregroundStyle(secondaryInk)
-                            .lineLimit(1)
+                    if !compact {
+                        let sub = rowSubtitle(for: item)
+                        if !sub.isEmpty {
+                            Text(verbatim: sub)
+                                .font(metrics.font(.caption))
+                                .foregroundStyle(secondaryInk)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        }
                     }
                 }
                 Spacer(minLength: 6)
@@ -273,12 +286,15 @@ struct AetherShelfWidgetView: View {
                     Image(systemName: copiedID == item.id ? "checkmark.circle.fill" : "arrow.up.right.square")
                         .font(.system(size: compact ? 13 : 14, weight: .semibold))
                         .foregroundStyle(copiedID == item.id ? .green : .teal)
+                        .id(copiedID == item.id)
+                        .transition(DroppyTransition.element)
                 } else {
                     HStack(spacing: 5) {
                         if copiedID == item.id {
-                            Text("Copied")
+                            Label("Copied", systemImage: "checkmark.circle.fill")
                                 .font(metrics.font(.caption))
                                 .foregroundStyle(.green)
+                                .transition(DroppyTransition.element)
                         } else {
                             AetherCodeDigitsText(
                                 code: item.code,
@@ -287,6 +303,7 @@ struct AetherShelfWidgetView: View {
                                 fontSize: compact ? 13 : 15
                             )
                             .foregroundStyle(primaryInk)
+                            .transition(DroppyTransition.element)
                         }
                         if item.expires > now {
                             AetherExpiryRing(item: item, now: now, size: compact ? 12 : 14)
@@ -303,6 +320,16 @@ struct AetherShelfWidgetView: View {
         .contextMenu {
             AetherCodeContextMenu(item: item, model: model)
         }
+    }
+
+    private func rowSubtitle(for item: CodeItem) -> String {
+        if showPreviews && !item.sender.isEmpty && !item.preview.isEmpty {
+            return "\(item.sender) · \(item.preview)"
+        }
+        if showPreviews && !item.preview.isEmpty {
+            return item.preview
+        }
+        return item.sender
     }
 
     private func triggerPrimaryAction(_ item: CodeItem) {

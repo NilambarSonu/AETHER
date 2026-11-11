@@ -286,7 +286,7 @@ struct AetherReleaseHardeningTests {
         let manifest = try JSONSerialization.jsonObject(with: manifestData) as? [String: Any]
         #expect(manifest?["id"] as? String == "aether")
         #expect(manifest?["name"] as? String == "AETHER")
-        #expect(manifest?["version"] as? String == "2.0.0")
+        #expect(manifest?["version"] as? String == "2.1.0")
         #expect((manifest?["summary"] as? String ?? "").count <= 60)
         #expect(manifest?["category"] as? String == "System")
         #expect(manifest?["minAppVersion"] as? String == "16.2.0")
@@ -317,6 +317,10 @@ struct AetherReleaseHardeningTests {
         // Droplet Swift implementation conforms to all standalone capabilities and respects .normal HUD priority
         let dropletSrc = try String(contentsOf: root.appendingPathComponent("Droplet/Sources/AETHER/AetherDroplet.swift"), encoding: .utf8)
         let hudSrc = try String(contentsOf: root.appendingPathComponent("Droplet/Sources/AETHER/DroppyBridges/AetherHUDBridge.swift"), encoding: .utf8)
+        let oauthSrc = try String(contentsOf: root.appendingPathComponent("Droplet/Sources/AetherEngine/Mail/MailOAuth.swift"), encoding: .utf8)
+        #expect(!oauthSrc.contains("374242175460"))
+        #expect(!oauthSrc.contains("946bd1c2"))
+        #expect(!oauthSrc.contains("uros.codecatch"))
         #expect(dropletSrc.contains("HUDPresenting"))
         #expect(dropletSrc.contains("SettingsPagesProviding"))
         #expect(dropletSrc.contains("ShelfWidgetCompositionProviding"))

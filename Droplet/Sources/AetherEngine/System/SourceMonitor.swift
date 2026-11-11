@@ -12,17 +12,20 @@ public final class SourceMonitor: ObservableObject {
         public let status: @MainActor @Sendable (SourceStatus) -> Void
         public let deliver: @MainActor @Sendable (IncomingMessage) -> Void
         public let event: @MainActor @Sendable (SourceEvent) -> Void
+        public let wakeSignal: PollWakeSignal?
 
         public init(
             from: ReadPosition?,
             status: @escaping @MainActor @Sendable (SourceStatus) -> Void,
             deliver: @escaping @MainActor @Sendable (IncomingMessage) -> Void,
-            event: @escaping @MainActor @Sendable (SourceEvent) -> Void
+            event: @escaping @MainActor @Sendable (SourceEvent) -> Void,
+            wakeSignal: PollWakeSignal? = nil
         ) {
             self.from = from
             self.status = status
             self.deliver = deliver
             self.event = event
+            self.wakeSignal = wakeSignal
         }
     }
 
@@ -35,6 +38,7 @@ public final class SourceMonitor: ObservableObject {
     private var accounts: [MailAccount] = []
     private var local: [String: LocalWatcher] = [:]
     private var tasks: [String: Task<Void, Never>] = [:]
+    private var wakeSignals: [String: PollWakeSignal] = [:]
     private var generations: [String: UUID] = [:]
     private var positions: [String: (position: ReadPosition, checked: Date)] = [:]
     private var pathMonitor: NWPathMonitor?
@@ -61,7 +65,8 @@ public final class SourceMonitor: ObservableObject {
                         status: callbacks.status,
                         deliver: callbacks.deliver,
                         event: callbacks.event,
-                        lookback: AetherPrefs.history(in: defaults)
+                        lookback: AetherPrefs.history(in: defaults),
+                        wakeSignal: callbacks.wakeSignal
                     )
                 } else {
                     await MailWatcher.watch(
@@ -108,6 +113,7 @@ public final class SourceMonitor: ObservableObject {
         local.removeAll()
         for (_, task) in tasks { task.cancel() }
         tasks.removeAll()
+        wakeSignals.removeAll()
         generations.removeAll()
         for key in health.keys {
             health[key]?.status = .off
@@ -157,6 +163,7 @@ public final class SourceMonitor: ObservableObject {
         let keys = Set(accounts.map { $0.id.uuidString })
         for key in Array(health.keys) where ![MessagesStore.sourceKey, AppleMailStore.sourceKey].contains(key) && !keys.contains(key) {
             tasks.removeValue(forKey: key)?.cancel()
+            wakeSignals.removeValue(forKey: key)
             generations.removeValue(forKey: key)
             health.removeValue(forKey: key)
             positions.removeValue(forKey: key)
@@ -170,7 +177,18 @@ public final class SourceMonitor: ObservableObject {
         } else if key == AppleMailStore.sourceKey {
             restartAppleMail()
         } else if let account = accounts.first(where: { $0.id.uuidString == key }) {
-            restart(account)
+            if account.usesSignIn, tasks[key] != nil, health[key]?.status == .live, let signal = wakeSignals[key] {
+                signal.wake(burstSeconds: 45)
+            } else {
+                restart(account)
+            }
+        }
+    }
+
+    /// Triggers an immediate poll + burst window across all active cloud API mail watchers.
+    public func boostAll(burstSeconds: TimeInterval = 45) {
+        for signal in wakeSignals.values {
+            signal.wake(burstSeconds: burstSeconds)
         }
     }
 
@@ -193,7 +211,9 @@ public final class SourceMonitor: ObservableObject {
     private func restart(_ account: MailAccount, resuming: Bool = false) {
         let key = account.id.uuidString
         tasks.removeValue(forKey: key)?.cancel()
-        let callbacks = begin(key, resuming: resuming)
+        wakeSignals.removeValue(forKey: key)
+        let wakeSignal = account.usesSignIn ? PollWakeSignal() : nil
+        let callbacks = begin(key, resuming: resuming, wakeSignal: wakeSignal)
         guard receiving, account.enabled else { return }
         guard hasCredential(account) else {
             health[key]?.status = .attention(SourceStatus.needsSignIn)
@@ -203,12 +223,15 @@ public final class SourceMonitor: ObservableObject {
             health[key]?.status = .attention(SourceStatus.waitingForNetwork)
             return
         }
+        if let wakeSignal {
+            wakeSignals[key] = wakeSignal
+        }
         health[key]?.status = .connecting
         let watch = watchMail
         tasks[key] = Task { await watch(account, callbacks) }
     }
 
-    private func begin(_ key: String, resuming: Bool = false) -> Callbacks {
+    private func begin(_ key: String, resuming: Bool = false, wakeSignal: PollWakeSignal? = nil) -> Callbacks {
         let generation = UUID()
         generations[key] = generation
         if !resuming || Date().timeIntervalSince(positions[key]?.checked ?? .distantPast) >= AetherPrefs.history(in: defaults) {
@@ -235,7 +258,8 @@ public final class SourceMonitor: ObservableObject {
                 } else {
                     self.health[key]?.record(event)
                 }
-            }
+            },
+            wakeSignal: wakeSignal
         )
     }
 }

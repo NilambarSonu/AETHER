@@ -49,7 +49,7 @@ struct AetherMenuBarExtraView: View {
                             .foregroundStyle(.secondary)
                     }
                     .padding(8)
-                    .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: DroppyRadius.small, style: .continuous))
                 }
                 .buttonStyle(.plain)
             }
@@ -94,7 +94,7 @@ struct AetherMenuBarExtraView: View {
             footerBar
         }
         .padding(12)
-        .frame(width: 316)
+        .frame(width: 320)
         .background(
             AetherScopedCaptureGuard(
                 hideFromCapture: hideFromCapture && model.isUnlocked
@@ -109,10 +109,25 @@ struct AetherMenuBarExtraView: View {
     }
 
     private var headerBar: some View {
-        HStack {
-            Label("AETHER", systemImage: "key.viewfinder")
+        HStack(spacing: 8) {
+            AetherSettingsIconBadge(
+                symbol: "key.viewfinder",
+                top: Color(red: 0.24, green: 0.62, blue: 1.00),
+                bottom: Color(red: 0.08, green: 0.40, blue: 0.88),
+                size: 22
+            )
+            Text("AETHER")
                 .font(.headline)
             Spacer()
+            Button {
+                model.boostSources()
+            } label: {
+                Image(systemName: "arrow.clockwise")
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .help("Check mailboxes now")
+
             Button {
                 if model.isUnlocked {
                     model.vaultSession.lock()
@@ -158,14 +173,17 @@ struct AetherMenuBarExtraView: View {
         }
         .padding(8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: DroppyRadius.small, style: .continuous))
     }
 
     private var lockedState: some View {
         VStack(spacing: 10) {
-            Image(systemName: "lock.shield.fill")
-                .font(.title2)
-                .foregroundStyle(.orange)
+            AetherSettingsIconBadge(
+                symbol: "lock.shield.fill",
+                top: .orange,
+                bottom: Color(red: 0.85, green: 0.42, blue: 0.05),
+                size: 36
+            )
             Text("Codes are protected")
                 .font(.subheadline.weight(.medium))
             Button("Unlock with Touch ID / Password") {
@@ -240,11 +258,13 @@ struct AetherMenuBarExtraView: View {
                                 .lineLimit(1)
                         }
                     }
-                    if showPreviews && !item.preview.isEmpty {
-                        Text(verbatim: item.preview)
+                    let secondary = rowSubtitle(for: item)
+                    if !secondary.isEmpty {
+                        Text(verbatim: secondary)
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
+                            .truncationMode(.middle)
                     } else if item.origin != .vault {
                         Text(verbatim: item.received.aetherDayTitle)
                             .font(.caption2)
@@ -259,7 +279,7 @@ struct AetherMenuBarExtraView: View {
                 } else {
                     HStack(spacing: 6) {
                         if copiedID == item.id {
-                            Text("Copied")
+                            Label("Copied", systemImage: "checkmark.circle.fill")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(.green)
                         } else {
@@ -279,7 +299,7 @@ struct AetherMenuBarExtraView: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
             .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                RoundedRectangle(cornerRadius: DroppyRadius.small, style: .continuous)
                     .fill(hoveredID == item.id ? Color.primary.opacity(0.08) : Color.clear)
             )
             .contentShape(Rectangle())
@@ -291,6 +311,16 @@ struct AetherMenuBarExtraView: View {
         .contextMenu {
             AetherCodeContextMenu(item: item, model: model)
         }
+    }
+
+    private func rowSubtitle(for item: CodeItem) -> String {
+        if showPreviews && !item.sender.isEmpty && !item.preview.isEmpty {
+            return "\(item.sender) · \(item.preview)"
+        }
+        if showPreviews && !item.preview.isEmpty {
+            return item.preview
+        }
+        return item.sender
     }
 
     private var footerBar: some View {
@@ -339,16 +369,17 @@ struct AetherMenuBarExtraView: View {
     }
 
     private var combinedItems: [CodeItem] {
-        let now = model.now
+        let now = Date()
         let liveItems = model.items
         let vaultItems = model.isOn(AetherPrefs.bitwarden) ? model.vault.compactMap { CodeItem($0, at: now) } : []
         if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return liveItems + model.search.shortcuts(from: vaultItems)
+            let shortcuts = model.search.shortcuts(from: vaultItems)
+            return liveItems + shortcuts
         }
         return liveItems + vaultItems
     }
 
     private var attentionSource: (key: String, label: String, status: SourceStatus)? {
-        model.sources.first { $0.status.needsAttention }
+        model.sources.first(where: { $0.status.needsAttention })
     }
 }

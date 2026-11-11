@@ -12,53 +12,78 @@ struct AddAccountSettingsPage: View {
     var body: some View {
         DropletSettingsPage {
             DropletSettingsSection {
-                settingsSectionHeader("Recommended OAuth providers")
+                settingsSectionHeader("Cloud mail providers (OAuth / App Password)")
             } content: {
                 DropletSettingsCard {
                     DropletSettingsPageLink(
                         "Google / Gmail",
-                        subtitle: "Sign in securely with Google OAuth (read-only) or use an App Password",
+                        subtitle: "Connect using AETHER's OAuth client or a Google App Password",
                         page: AetherSettingsRoute.newAccount("gmail")
                     ) {
-                        AetherSymbolTile(symbol: "envelope.badge.fill", color: .red, size: AetherSymbolTile.settingsLinkSize)
+                        AetherSettingsIconBadge(
+                            symbol: "envelope.badge.fill",
+                            top: Color(red: 0.94, green: 0.28, blue: 0.26),
+                            bottom: Color(red: 0.78, green: 0.14, blue: 0.14),
+                            size: AetherSymbolTile.settingsLinkSize
+                        )
                     }
 
                     DropletSettingsPageLink(
                         "Microsoft Outlook / 365",
-                        subtitle: "Sign in securely with Microsoft Graph OAuth (Mail.Read) or IMAP",
+                        subtitle: "Connect using AETHER Microsoft Graph OAuth (Mail.Read) or IMAP",
                         page: AetherSettingsRoute.newAccount("outlook")
                     ) {
-                        AetherSymbolTile(symbol: "envelope.fill", color: .blue, size: AetherSymbolTile.settingsLinkSize)
+                        AetherSettingsIconBadge(
+                            symbol: "envelope.fill",
+                            top: Color(red: 0.14, green: 0.60, blue: 0.98),
+                            bottom: Color(red: 0.04, green: 0.38, blue: 0.84),
+                            size: AetherSymbolTile.settingsLinkSize
+                        )
                     }
                 }
             }
 
             DropletSettingsSection {
-                settingsSectionHeader("App Password / IMAP")
+                settingsSectionHeader("Direct TLS IMAP / App Password")
             } content: {
                 DropletSettingsCard {
                     DropletSettingsPageLink(
                         "iCloud Mail",
-                        subtitle: "Connect using an Apple ID app-specific password (imap.mail.me.com)",
+                        subtitle: "Connect with an Apple ID app-specific password (imap.mail.me.com)",
                         page: AetherSettingsRoute.newAccount("icloud")
                     ) {
-                        AetherSymbolTile(symbol: "icloud.fill", color: .cyan, size: AetherSymbolTile.settingsLinkSize)
+                        AetherSettingsIconBadge(
+                            symbol: "icloud.fill",
+                            top: Color(red: 0.26, green: 0.78, blue: 0.98),
+                            bottom: Color(red: 0.10, green: 0.54, blue: 0.86),
+                            size: AetherSymbolTile.settingsLinkSize
+                        )
                     }
 
                     DropletSettingsPageLink(
                         "Yahoo Mail",
-                        subtitle: "Connect using a Yahoo app password (imap.mail.yahoo.com)",
+                        subtitle: "Connect with a Yahoo app password (imap.mail.yahoo.com)",
                         page: AetherSettingsRoute.newAccount("yahoo")
                     ) {
-                        AetherSymbolTile(symbol: "envelope.open.fill", color: .purple, size: AetherSymbolTile.settingsLinkSize)
+                        AetherSettingsIconBadge(
+                            symbol: "envelope.open.fill",
+                            top: Color(red: 0.62, green: 0.26, blue: 0.92),
+                            bottom: Color(red: 0.42, green: 0.12, blue: 0.74),
+                            size: AetherSymbolTile.settingsLinkSize
+                        )
                     }
 
                     DropletSettingsPageLink(
                         "Other IMAP server",
-                        subtitle: "Connect to Fastmail, Proton Bridge, or any TLS IMAP server (port 993)",
+                        subtitle: "Fastmail, Proton Bridge, or any TLS IMAP mailbox (port 993)",
                         page: AetherSettingsRoute.newAccount("imap")
                     ) {
-                        AetherSymbolTile(symbol: "server.rack", color: .gray, size: AetherSymbolTile.settingsLinkSize)
+                        AetherSettingsIconBadge(
+                            symbol: "server.rack",
+                            top: Color(white: 0.48),
+                            bottom: Color(white: 0.30),
+                            size: AetherSymbolTile.settingsLinkSize
+                        )
                     }
                 }
             }
@@ -74,13 +99,17 @@ struct AccountEditorSettingsPage: View {
     let existingAccountID: UUID?
     let preset: String?
 
-    @StateObject private var signIn = MailSignIn()
+    @StateObject private var signIn: MailSignIn
     @State private var account: MailAccount
     @State private var useOAuth: Bool
     @State private var password = ""
     @State private var portText: String
     @State private var hasEditedHost = false
     @State private var hasEditedLabel = false
+    @State private var customClientID = ""
+    @State private var customRedirectURI = ""
+    @State private var showClientSetup = false
+    @State private var copiedRedirect = false
     @State private var statusMessage: String?
     @State private var isTesting = false
     @State private var errorMessage: String?
@@ -120,24 +149,31 @@ struct AccountEditorSettingsPage: View {
             }
         }
 
+        let storedCred = initial.providerKind.flatMap { MailOAuth.customCredential(for: $0, in: model.secrets) }
+        let resolved = initial.resolvedProvider(in: model.secrets)
+
+        _signIn = StateObject(wrappedValue: MailSignIn(secrets: model.secrets))
         _account = State(initialValue: initial)
-        _useOAuth = State(initialValue: initial.provider != nil && (existing == nil ? initial.usesSignIn : initial.usesSignIn))
+        _useOAuth = State(initialValue: initial.providerKind != nil && initial.usesSignIn)
         _portText = State(initialValue: String(initial.port))
         _hasEditedHost = State(initialValue: existing != nil || (preset != nil && preset != "imap"))
         _hasEditedLabel = State(initialValue: existing != nil || !initial.label.isEmpty)
+        _customClientID = State(initialValue: storedCred?.clientID ?? "")
+        _customRedirectURI = State(initialValue: storedCred?.redirectURI ?? "")
+        _showClientSetup = State(initialValue: !(resolved?.isConfigured ?? true))
     }
 
     var body: some View {
         DropletSettingsPage {
             DropletSettingsSection {
-                settingsSectionHeader("Account details")
+                settingsSectionHeader("Mailbox identity")
             } content: {
                 DropletSettingsCard {
-                    DropletControlRow(
+                    AetherSettingsControlRow(
                         title: "Email address",
                         icon: "at",
                         iconColor: .blue,
-                        infoTip: "Email address for this inbox. AETHER only reads recent messages for codes and never marks mail read."
+                        infoTip: "AETHER monitors recent messages strictly read-only without changing read/unread state."
                     ) {
                         TextField("you@example.com", text: $account.user)
                             .textFieldStyle(.roundedBorder)
@@ -153,19 +189,19 @@ struct AccountEditorSettingsPage: View {
                                 if !hasEditedLabel || account.label.isEmpty {
                                     account.label = guessed.label
                                 }
-                                if let detectedProvider = account.provider {
+                                if let detectedKind = account.providerKind {
                                     useOAuth = true
                                     account.signedIn = true
-                                    _ = detectedProvider
+                                    loadOAuthClientFields(for: detectedKind)
                                 }
                             }
                     }
 
-                    DropletControlRow(
+                    AetherSettingsControlRow(
                         title: "Display label",
                         icon: "tag.fill",
                         iconColor: .teal,
-                        infoTip: "Optional short label shown when differentiating multiple mail accounts."
+                        infoTip: "Friendly label shown in notifications, notch cards, and multi-inbox views."
                     ) {
                         TextField("Personal Gmail", text: $account.label)
                             .textFieldStyle(.roundedBorder)
@@ -177,26 +213,26 @@ struct AccountEditorSettingsPage: View {
                             }
                     }
 
-                    DropletToggleRow(
+                    AetherSettingsToggleRow(
                         title: "Watch this inbox",
+                        subtitle: "Automatically detects arriving OTP codes and verified sign-in links.",
                         icon: "checkmark.circle.fill",
                         iconColor: .green,
-                        subtitle: "Automatically fetches arriving verification codes and sign-in links in the background.",
                         isOn: $account.enabled
                     )
                 }
             }
 
             DropletSettingsSection {
-                settingsSectionHeader(LocalizedStringKey(account.provider.map { "\($0.name) authentication" } ?? "IMAP connection"))
+                settingsSectionHeader(LocalizedStringKey(account.providerKind.map { "\($0 == .google ? "Google" : "Microsoft") authentication" } ?? "IMAP connection"))
             } content: {
                 DropletSettingsCard {
-                    if let provider = account.provider {
-                        DropletControlRow(
+                    if let kind = account.providerKind {
+                        AetherSettingsControlRow(
                             title: "Sign-in method",
                             icon: "person.badge.key.fill",
                             iconColor: .indigo,
-                            infoTip: "OAuth uses your browser and saves a read-only Keychain token. You can also use an app-specific IMAP password."
+                            infoTip: "Use your AETHER OAuth Client ID (browser PKCE) or an App Password (direct TLS IMAP IDLE)."
                         ) {
                             Picker("Sign-in method", selection: $useOAuth) {
                                 Text("OAuth Sign-In").tag(true)
@@ -211,12 +247,22 @@ struct AccountEditorSettingsPage: View {
                         }
 
                         if useOAuth {
-                            oauthSection(provider: provider)
+                            oauthSection(kind: kind)
                         } else {
                             imapFields(showPasswordHelp: true)
                         }
                     } else {
                         imapFields(showPasswordHelp: account.isGmail || account.host.contains("icloud") || account.host.contains("yahoo"))
+                    }
+                }
+            }
+
+            if let kind = account.providerKind, useOAuth {
+                DropletSettingsSection {
+                    settingsSectionHeader("AETHER OAuth client")
+                } content: {
+                    DropletSettingsCard {
+                        oauthClientConfigurationRows(kind: kind)
                     }
                 }
             }
@@ -233,7 +279,7 @@ struct AccountEditorSettingsPage: View {
 
             if let errorMessage {
                 DropletSettingsSection {
-                    settingsSectionHeader("Error")
+                    settingsSectionHeader("Attention")
                 } content: {
                     DropletSettingsCard {
                         AetherWarningRow(message: errorMessage)
@@ -245,8 +291,8 @@ struct AccountEditorSettingsPage: View {
                 settingsSectionHeader("Actions")
             } content: {
                 DropletSettingsCard {
-                    DropletControlRow(
-                        title: originalAccount == nil ? "Add mail account" : "Save changes",
+                    AetherSettingsControlRow(
+                        title: originalAccount == nil ? "Save new mailbox" : "Save changes",
                         icon: "checkmark.circle.fill",
                         iconColor: .blue
                     ) {
@@ -267,16 +313,16 @@ struct AccountEditorSettingsPage: View {
                     }
 
                     if let originalAccount {
-                        DropletControlRow(
+                        AetherSettingsControlRow(
                             title: "Remove account",
                             icon: "trash.fill",
                             iconColor: .red,
-                            infoTip: "Stops reading this inbox and revokes or removes its Keychain credentials."
+                            infoTip: "Stops monitoring and erases saved encrypted Keychain tokens."
                         ) {
                             Button("Remove…") {
                                 let confirmed = DropletConfirmationDialog.present(
                                     title: "Remove \(originalAccount.label)?",
-                                    message: "AETHER will stop watching \(originalAccount.user) and remove its saved Keychain credentials.",
+                                    message: "AETHER will stop watching \(originalAccount.user) and wipe its encrypted Keychain credentials.",
                                     confirmTitle: "Remove Account",
                                     symbol: "trash.fill"
                                 )
@@ -302,42 +348,94 @@ struct AccountEditorSettingsPage: View {
     }
 
     @ViewBuilder
-    private func oauthSection(provider: MailOAuth) -> some View {
+    private func oauthSection(kind: MailOAuth.ProviderKind) -> some View {
+        let provider = MailOAuth.resolved(for: kind, in: model.secrets)
         let trimmedUser = account.user.trimmingCharacters(in: .whitespacesAndNewlines)
         let hasNewGrant = signIn.token(for: normalizedAccount) != nil
         let hasExistingGrant = originalAccount?.usesSignIn == true
             && originalAccount?.secretKey == normalizedAccount.secretKey
             && originalAccount?.hasCredential(in: model.secrets) == true
 
-        DropletControlRow(
-            title: "\(provider.name) access",
+        AetherSettingsControlRow(
+            title: "\(provider.name) sign-in",
+            subtitle: hasNewGrant
+                ? "Authenticated as \(trimmedUser)"
+                : provider.isConfigured
+                    ? "Sign in with AETHER's configured OAuth client"
+                    : "Configure an AETHER OAuth Client ID below, or switch to App Password",
             icon: hasNewGrant || hasExistingGrant ? "checkmark.shield.fill" : "globe",
-            iconColor: hasNewGrant || hasExistingGrant ? .green : .blue,
-            infoTip: "Opens your default browser via macOS ASWebAuthenticationSession with PKCE."
+            iconColor: hasNewGrant || hasExistingGrant ? .green : (provider.isConfigured ? .blue : .orange),
+            infoTip: "Uses macOS ASWebAuthenticationSession with SecRandomCopyBytes PKCE. Zero third-party CodeCatch identifiers."
         ) {
             HStack(spacing: 8) {
-                if hasNewGrant {
-                    Text("Authorized as \(trimmedUser)")
-                        .font(.caption)
-                        .foregroundStyle(.green)
-                } else if hasExistingGrant {
-                    Text("Signed in")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                if !provider.isConfigured {
+                    Button("Use App Password") {
+                        useOAuth = false
+                        account.signedIn = false
+                    }
+                    .buttonStyle(.bordered)
                 }
 
                 Button(signIn.isBusy ? "Signing in…" : (hasNewGrant || hasExistingGrant ? "Re-authenticate" : "Sign in with \(provider.name)…")) {
                     startOAuthSignIn()
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(signIn.isBusy)
+                .disabled(signIn.isBusy || !provider.isConfigured)
             }
         }
     }
 
     @ViewBuilder
+    private func oauthClientConfigurationRows(kind: MailOAuth.ProviderKind) -> some View {
+        let resolved = previewResolvedOAuth(for: kind)
+
+        AetherSettingsControlRow(
+            title: kind == .google ? "Google OAuth Client ID" : "Microsoft Client ID",
+            subtitle: kind == .google
+                ? "Create an iOS OAuth Client ID in Google Cloud Console under your AETHER brand."
+                : "Create a Mobile & desktop public client in Microsoft Entra ID.",
+            icon: "key.viewfinder",
+            iconColor: resolved.isConfigured ? .green : .blue,
+            infoTip: "Stored AES-256-GCM encrypted in macOS Keychain."
+        ) {
+            HStack(spacing: 8) {
+                TextField(
+                    kind == .google ? "123456-xxx.apps.googleusercontent.com" : "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+                    text: $customClientID
+                )
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 240)
+                Button("Apply") {
+                    saveCustomOAuthClient(for: kind)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+        }
+
+        AetherSettingsControlRow(
+            title: "Redirect URI",
+            subtitle: resolved.redirect,
+            icon: "arrow.triangle.turn.up.right.circle.fill",
+            iconColor: .teal,
+            infoTip: "Register this exact redirect URI in your cloud console."
+        ) {
+            Button(copiedRedirect ? "Copied!" : "Copy URI") {
+                droplet.copyText(resolved.redirect)
+                copiedRedirect = true
+                Task {
+                    try? await Task.sleep(for: .seconds(1.5))
+                    copiedRedirect = false
+                }
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+    }
+
+    @ViewBuilder
     private func imapFields(showPasswordHelp: Bool) -> some View {
-        DropletControlRow(
+        AetherSettingsControlRow(
             title: "IMAP server",
             icon: "network",
             iconColor: .gray
@@ -350,9 +448,9 @@ struct AccountEditorSettingsPage: View {
                 }
         }
 
-        DropletControlRow(
+        AetherSettingsControlRow(
             title: "TLS port",
-            icon: "number.square",
+            icon: "number.square.fill",
             iconColor: .gray
         ) {
             TextField("993", text: $portText)
@@ -365,13 +463,13 @@ struct AccountEditorSettingsPage: View {
                 }
         }
 
-        DropletControlRow(
+        AetherSettingsControlRow(
             title: originalAccount?.hasCredential(in: model.secrets) == true && originalAccount?.usesSignIn == false
-                ? "New app password (optional)"
+                ? "New app password"
                 : "App password",
             icon: "key.fill",
             iconColor: .orange,
-            infoTip: "Stored only in macOS Keychain under AETHER."
+            infoTip: "Encrypted with AES-256-GCM inside your local macOS Keychain."
         ) {
             HStack(spacing: 8) {
                 SecureField(
@@ -390,9 +488,9 @@ struct AccountEditorSettingsPage: View {
             }
         }
 
-        DropletControlRow(
+        AetherSettingsControlRow(
             title: "Verify connection",
-            icon: "bolt.horizontal.circle",
+            icon: "bolt.horizontal.circle.fill",
             iconColor: .teal
         ) {
             Button(isTesting ? "Testing…" : "Test IMAP Login") {
@@ -400,6 +498,40 @@ struct AccountEditorSettingsPage: View {
             }
             .buttonStyle(.bordered)
             .disabled(isTesting || !canRunIMAPTest)
+        }
+    }
+
+    private func previewResolvedOAuth(for kind: MailOAuth.ProviderKind) -> MailOAuth {
+        let draftID = customClientID.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !draftID.isEmpty {
+            let draftRedirect = customRedirectURI.trimmingCharacters(in: .whitespacesAndNewlines)
+            return kind == .google
+                ? MailOAuth.google(clientID: draftID, redirectURI: draftRedirect.isEmpty ? nil : draftRedirect)
+                : MailOAuth.microsoft(clientID: draftID, redirectURI: draftRedirect.isEmpty ? nil : draftRedirect)
+        }
+        return MailOAuth.resolved(for: kind, in: model.secrets)
+    }
+
+    private func loadOAuthClientFields(for kind: MailOAuth.ProviderKind) {
+        let cred = MailOAuth.customCredential(for: kind, in: model.secrets)
+        customClientID = cred?.clientID ?? ""
+        customRedirectURI = cred?.redirectURI ?? ""
+    }
+
+    private func saveCustomOAuthClient(for kind: MailOAuth.ProviderKind) {
+        errorMessage = nil
+        do {
+            try MailOAuth.saveCustomCredential(
+                clientID: customClientID,
+                redirectURI: customRedirectURI,
+                for: kind,
+                in: model.secrets
+            )
+            statusMessage = customClientID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? "Cleared custom \(kind == .google ? "Google" : "Microsoft") OAuth Client ID."
+                : "Saved custom \(kind == .google ? "Google" : "Microsoft") OAuth Client ID in encrypted Keychain."
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
 
@@ -415,7 +547,7 @@ struct AccountEditorSettingsPage: View {
             copy.label = trimmedLabel
         }
         copy.port = Int(portText.trimmingCharacters(in: .whitespaces)) ?? account.port
-        copy.signedIn = useOAuth && copy.provider != nil
+        copy.signedIn = useOAuth && copy.providerKind != nil
         return copy
     }
 
@@ -447,6 +579,9 @@ struct AccountEditorSettingsPage: View {
     private func startOAuthSignIn() {
         errorMessage = nil
         statusMessage = nil
+        if let kind = account.providerKind {
+            saveCustomOAuthClientIfEdited(for: kind)
+        }
         let target = normalizedAccount
         Task {
             do {
@@ -456,13 +591,24 @@ struct AccountEditorSettingsPage: View {
                 if account.label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     account.label = MailAccount.guess(for: signedEmail).label
                 }
-                statusMessage = "Authenticated cleanly as \(signedEmail). Click Save to begin watching this inbox."
+                statusMessage = "Authenticated cleanly as \(signedEmail). Click Save Account to begin monitoring."
             } catch {
                 if (error as? CancellationError) == nil {
                     errorMessage = error.localizedDescription
                 }
             }
         }
+    }
+
+    private func saveCustomOAuthClientIfEdited(for kind: MailOAuth.ProviderKind) {
+        let trimmed = customClientID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        try? MailOAuth.saveCustomCredential(
+            clientID: trimmed,
+            redirectURI: customRedirectURI,
+            for: kind,
+            in: model.secrets
+        )
     }
 
     private func runConnectionTest() {
@@ -482,7 +628,7 @@ struct AccountEditorSettingsPage: View {
                 let conn = try IMAPConnection(account: candidate)
                 try await conn.open(user: candidate.user, password: secret)
                 await conn.close()
-                statusMessage = "Connected to \(candidate.host):\(candidate.port) cleanly."
+                statusMessage = "Connected to \(candidate.host):\(candidate.port) over TLS."
             } catch {
                 if !Task.isCancelled {
                     errorMessage = error.localizedDescription

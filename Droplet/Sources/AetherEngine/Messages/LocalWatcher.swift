@@ -8,6 +8,7 @@ public protocol LocalStore: AnyObject {
     var position: Int64 { get }
     var readPosition: ReadPosition? { get }
     var watchDirectory: String? { get }
+    var hasPendingBodies: Bool { get }
     func open(since: Date) -> String?
     func newMessages() throws -> [IncomingMessage]
     func close()
@@ -16,6 +17,7 @@ public protocol LocalStore: AnyObject {
 public extension LocalStore {
     var readPosition: ReadPosition? { nil }
     var watchDirectory: String? { nil }
+    var hasPendingBodies: Bool { false }
 }
 
 /// Watches a local SQLite database using FSEvents where available, falling back to 1s polling.
@@ -28,6 +30,7 @@ public final class LocalWatcher {
     private var retryAt = Date.distantPast
     private var lastStatus: SourceStatus?
     private var stopped = false
+    private var pendingRetryScheduled = false
 
     public init(_ store: LocalStore) { self.store = store }
 
@@ -111,6 +114,13 @@ public final class LocalWatcher {
                 if let newest = messages.map(\.date).max() { event(.message(newest)) }
                 for message in messages { deliver(message) }
                 if let read { event(.read(read)) }
+            }
+            if store.hasPendingBodies, !pendingRetryScheduled {
+                pendingRetryScheduled = true
+                queue.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+                    self?.pendingRetryScheduled = false
+                    self?.poll(lookback: lookback, status: status, deliver: deliver, event: event)
+                }
             }
         } catch {
             retry(.failed("Can't read \(store.name)"))

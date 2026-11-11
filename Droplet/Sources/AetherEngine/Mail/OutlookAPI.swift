@@ -11,12 +11,14 @@ public struct OutlookAPI: MailAPI {
         self.send = send ?? { try await auth.send($0, provider: "Microsoft") }
     }
     public init(account: MailAccount, secrets: AetherSecretStore = .keychain) {
-        self.init(auth: .saved(.microsoft, tokenKey: account.refreshTokenKey, secrets: secrets))
+        self.init(auth: .saved(.microsoft, tokenKey: account.activeRefreshTokenKey(in: secrets), secrets: secrets))
     }
 
     public func emailAddress() async throws -> String {
         let me = try await json("me", ["$select": "mail,userPrincipalName"])
-        guard let email = (me["mail"] as? String) ?? (me["userPrincipalName"] as? String) else { throw MailAPIError.http(200, "no address") }
+        guard let email = (me["mail"] as? String) ?? (me["userPrincipalName"] as? String) else {
+            throw MailAPIError.http(200, "no address")
+        }
         return email
     }
 
@@ -33,8 +35,14 @@ public struct OutlookAPI: MailAPI {
         ]).map(\.id).reversed()
     }
 
+    /// Rewinds the query filter by a small 5-second overlap window so same-second or mildly
+    /// clock-skewed arrivals are never skipped; downstream bounded deduplication drops repeats.
     public func added(since cursor: String) async throws -> (ids: [String], cursor: String) {
-        let new = try await list(["$filter": "receivedDateTime ge \(cursor)", "$orderby": "receivedDateTime asc", "$top": "50"], allPages: true)
+        let lookbackCursor: String = {
+            guard let parsed = try? Date(cursor, strategy: .iso8601) else { return cursor }
+            return Self.timestamp(parsed.addingTimeInterval(-5))
+        }()
+        let new = try await list(["$filter": "receivedDateTime ge \(lookbackCursor)", "$orderby": "receivedDateTime asc", "$top": "50"], allPages: true)
         return (new.map(\.id), new.last?.received ?? cursor)
     }
 

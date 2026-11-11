@@ -12,6 +12,7 @@ public final class AppleMailStore: LocalStore {
 
     public let name = "Apple Mail"
     public var watchDirectory: String? { (version ?? root).path }
+    public var hasPendingBodies: Bool { !waiting.isEmpty }
     public private(set) var position: Int64 = 0
     private let root: URL
     private var version: URL?

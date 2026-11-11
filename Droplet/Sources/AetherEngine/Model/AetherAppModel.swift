@@ -40,7 +40,8 @@ public final class AetherAppModel: ObservableObject {
         authenticate: agentAuthenticate,
         load: { [secrets] in try AgentStore.load(from: secrets) },
         save: { [secrets] in try AgentStore.save($0, to: secrets) },
-        defaults: defaults
+        defaults: defaults,
+        secrets: secrets
     )
 
     public var hooks: AetherRuntimeHooks
@@ -85,7 +86,7 @@ public final class AetherAppModel: ObservableObject {
         self.agentAuthenticate = agentAuthenticate
         let resolvedClipboard = clipboard ?? AetherClipboard(defaults: defaults)
         self.clipboard = resolvedClipboard
-        self.icons = icons ?? AetherIconStore(defaults: defaults)
+        self.icons = icons ?? AetherIconStore(defaults: defaults, secrets: secrets)
         self.accounts = accounts ?? MailAccount.load(from: defaults)
         self.ignoredSenders = defaults.stringArray(forKey: AetherPrefs.ignoredSenders) ?? []
         self.notCodes = defaults.data(forKey: AetherPrefs.notCodes).flatMap { try? JSONDecoder().decode([NotCodeRule].self, from: $0) } ?? []
@@ -96,7 +97,10 @@ public final class AetherAppModel: ObservableObject {
             defaults: defaults,
             secrets: secrets,
             unlockPolicy: policy,
-            didLock: { resolvedClipboard.clearIfOurs() }
+            didLock: {
+                resolvedClipboard.clearIfOurs()
+                MailOAuth.clearAllAccessTokens()
+            }
         )
         self.vaultSession = session
         self.monitor = monitor ?? SourceMonitor(defaults: defaults, secrets: secrets)
@@ -212,10 +216,12 @@ public final class AetherAppModel: ObservableObject {
         icons.stop()
         agents.stop()
         BitwardenCLI.cancelAllActive()
+        MailOAuth.clearAllAccessTokens()
         vaultSession.lock()
     }
 
     private func lock(because event: String) {
+        MailOAuth.clearAllAccessTokens()
         vaultSession.lock()
         agents.cancel("\(event) before the request was approved.")
     }
@@ -287,6 +293,10 @@ public final class AetherAppModel: ObservableObject {
         monitor.restartAppleMail()
     }
 
+    public func boostSources() {
+        monitor.boostAll()
+    }
+
     public var mailSourceKeys: [String] {
         accounts.filter(\.enabled).map { $0.id.uuidString } + (isOn(AetherPrefs.appleMail) ? [AppleMailStore.sourceKey] : [])
     }
@@ -338,6 +348,7 @@ public final class AetherAppModel: ObservableObject {
         }
         items.append(item)
         items.sort { $0.received > $1.received }
+        icons.prefetch(domain: item.domain)
 
         guard item.shouldAnnounce(at: Date()) else { return }
         guard !agents.isWaiting else { return }

@@ -29,8 +29,16 @@ public extension AetherAppModel {
 
         public static func backing(_ store: AetherSecretStore) -> AccountKeychain {
             AccountKeychain(
-                read: { store.get($0) },
-                write: { try store.set($0, for: $1) },
+                read: { MailAccount.readSecret(key: $0, in: store) },
+                write: { value, key in
+                    let sealed = try AetherVaultCrypto.sealString(
+                        value,
+                        domain: .mailSecret,
+                        recordKey: key,
+                        using: store
+                    )
+                    try store.set(sealed, for: key)
+                },
                 remove: { try store.remove($0) },
                 revoke: { provider, token in Task { await provider.revoke(token) } }
             )
@@ -60,6 +68,7 @@ public extension AetherAppModel {
         var updated = account
         if let refreshToken {
             try kc.write(refreshToken, updated.refreshTokenKey)
+            try? kc.remove(updated.legacyRefreshTokenKey)
             updated.signedIn = true
         } else if !updated.usesSignIn {
             if !password.isEmpty { try kc.write(password, updated.secretKey) }
@@ -86,9 +95,13 @@ public extension AetherAppModel {
     }
 
     private func forgetSignIn(_ account: MailAccount, _ keychain: AccountKeychain) throws {
-        let token = keychain.read(account.refreshTokenKey)
+        let token = keychain.read(account.refreshTokenKey) ?? keychain.read(account.legacyRefreshTokenKey)
         try keychain.remove(account.refreshTokenKey)
+        try? keychain.remove(account.legacyRefreshTokenKey)
         MailOAuth.forgetAccessToken(tokenKey: account.refreshTokenKey)
-        if let token, let provider = account.provider { keychain.revoke(provider, token) }
+        MailOAuth.forgetAccessToken(tokenKey: account.legacyRefreshTokenKey)
+        if let token, let provider = account.resolvedProvider(in: secrets) {
+            keychain.revoke(provider, token)
+        }
     }
 }

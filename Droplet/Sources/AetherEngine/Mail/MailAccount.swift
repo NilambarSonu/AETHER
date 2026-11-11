@@ -37,19 +37,49 @@ public struct MailAccount: Codable, Identifiable, Hashable, Sendable {
     }
 
     public var secretKey: String { "\(user.lowercased())@\(host.lowercased())" }
-    public var refreshTokenKey: String { secretKey + "#google" }
+    public var refreshTokenKey: String { secretKey + "#oauth" }
+    public var legacyRefreshTokenKey: String { secretKey + "#google" }
     public var usesSignIn: Bool { signedIn == true }
     public var isGmail: Bool { [Self.gmailHost, "imap.googlemail.com"].contains(host.lowercased()) }
     public var isOutlook: Bool { [Self.outlookHost, "imap-mail.outlook.com"].contains(host.lowercased()) }
-    public var provider: MailOAuth? { isGmail ? .google : isOutlook ? .microsoft : nil }
+    public var providerKind: MailOAuth.ProviderKind? { isGmail ? .google : isOutlook ? .microsoft : nil }
+    public var provider: MailOAuth? { providerKind.map { MailOAuth.resolved(for: $0) } }
     public var iconDomain: String { isGmail ? "gmail.com" : isOutlook ? "outlook.com" : ServiceIdentity.registrable(host) }
 
+    public func resolvedProvider(in secrets: AetherSecretStore = .keychain) -> MailOAuth? {
+        providerKind.map { MailOAuth.resolved(for: $0, in: secrets) }
+    }
+
     public func password(in secrets: AetherSecretStore = .keychain) -> String? {
-        secrets.get(secretKey)
+        Self.readSecret(key: secretKey, in: secrets)
     }
 
     public func hasCredential(in secrets: AetherSecretStore = .keychain) -> Bool {
-        usesSignIn ? secrets.get(refreshTokenKey) != nil : secrets.get(secretKey) != nil
+        if usesSignIn {
+            return secrets.get(refreshTokenKey) != nil || secrets.get(legacyRefreshTokenKey) != nil
+        }
+        return secrets.get(secretKey) != nil
+    }
+
+    public func activeRefreshTokenKey(in secrets: AetherSecretStore = .keychain) -> String {
+        if secrets.get(refreshTokenKey) != nil {
+            return refreshTokenKey
+        }
+        if secrets.get(legacyRefreshTokenKey) != nil {
+            return legacyRefreshTokenKey
+        }
+        return refreshTokenKey
+    }
+
+    static func readSecret(key: String, in secrets: AetherSecretStore) -> String? {
+        guard let stored = secrets.get(key) else { return nil }
+        if AetherVaultCrypto.isSealed(stored) {
+            return try? AetherVaultCrypto.openString(stored, domain: .mailSecret, recordKey: key, using: secrets)
+        }
+        if let sealed = try? AetherVaultCrypto.sealString(stored, domain: .mailSecret, recordKey: key, using: secrets) {
+            try? secrets.set(sealed, for: key)
+        }
+        return stored
     }
 
     public static let gmailHost = "imap.gmail.com"

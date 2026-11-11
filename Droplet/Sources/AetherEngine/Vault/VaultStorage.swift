@@ -7,6 +7,11 @@ import Foundation
 @MainActor
 public enum VaultStorage {
     private static let key = "bitwarden.codes"
+    private static let unlockPolicyKey = "unlock-with-mac"
+
+    private struct PolicyRecord: Codable {
+        let unlockWithMac: Bool
+    }
 
     public static func unlockPolicy(
         secrets: AetherSecretStore = .keychain,
@@ -14,8 +19,40 @@ public enum VaultStorage {
     ) -> UnlockPolicy {
         let authentication = authentication ?? DeviceAuthentication()
         return UnlockPolicy(
-            load: { try secrets.read("unlock-with-mac") == "true" },
-            save: { try secrets.set($0 ? "true" : "false", for: "unlock-with-mac") },
+            load: {
+                guard let stored = try secrets.read(unlockPolicyKey) else { return false }
+                if AetherVaultCrypto.isSealed(stored) {
+                    let data = try AetherVaultCrypto.open(
+                        stored,
+                        domain: .unlockPolicy,
+                        recordKey: unlockPolicyKey,
+                        using: secrets
+                    )
+                    return try JSONDecoder().decode(PolicyRecord.self, from: data).unlockWithMac
+                }
+                // Legacy v1 plaintext boolean value: fail closed unless exact "true", and upgrade to AEAD immediately.
+                let enabled = (stored == "true")
+                let encoded = try JSONEncoder().encode(PolicyRecord(unlockWithMac: enabled))
+                if let sealed = try? AetherVaultCrypto.seal(
+                    encoded,
+                    domain: .unlockPolicy,
+                    recordKey: unlockPolicyKey,
+                    using: secrets
+                ) {
+                    try? secrets.set(sealed, for: unlockPolicyKey)
+                }
+                return enabled
+            },
+            save: { enabled in
+                let encoded = try JSONEncoder().encode(PolicyRecord(unlockWithMac: enabled))
+                let sealed = try AetherVaultCrypto.seal(
+                    encoded,
+                    domain: .unlockPolicy,
+                    recordKey: unlockPolicyKey,
+                    using: secrets
+                )
+                try secrets.set(sealed, for: unlockPolicyKey)
+            },
             authenticate: { try await authentication.authenticate() },
             cancel: { authentication.cancel() }
         )
@@ -32,12 +69,38 @@ public enum VaultStorage {
             authenticate: { try await policy.authenticate() },
             read: {
                 guard defaults.bool(forKey: AetherPrefs.bitwarden) else { return [] }
-                guard let json = try secrets.read(key) else { return [] }
-                return try JSONDecoder().decode([VaultCode].self, from: Data(json.utf8))
+                guard let stored = try secrets.read(key) else { return [] }
+                if AetherVaultCrypto.isSealed(stored) {
+                    let data = try AetherVaultCrypto.open(
+                        stored,
+                        domain: .vaultCodes,
+                        recordKey: key,
+                        using: secrets
+                    )
+                    return try JSONDecoder().decode([VaultCode].self, from: data)
+                }
+                // Upgrade legacy unencrypted v1 vault JSON in place when decoded cleanly.
+                let legacyData = Data(stored.utf8)
+                let decoded = try JSONDecoder().decode([VaultCode].self, from: legacyData)
+                if let sealed = try? AetherVaultCrypto.seal(
+                    legacyData,
+                    domain: .vaultCodes,
+                    recordKey: key,
+                    using: secrets
+                ) {
+                    try? secrets.set(sealed, for: key)
+                }
+                return decoded
             },
             write: { codes in
                 let data = try JSONEncoder().encode(codes)
-                try secrets.set(String(decoding: data, as: UTF8.self), for: key)
+                let sealed = try AetherVaultCrypto.seal(
+                    data,
+                    domain: .vaultCodes,
+                    recordKey: key,
+                    using: secrets
+                )
+                try secrets.set(sealed, for: key)
                 defaults.set(Date(), forKey: AetherPrefs.vaultImportedAt)
             },
             remove: {

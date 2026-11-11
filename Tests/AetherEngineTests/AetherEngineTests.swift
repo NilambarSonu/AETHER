@@ -1,6 +1,7 @@
 // Modified for AETHER (November 2026). Copyright (C) 2026 Nilambar Behera.
 // Licensed under the GNU General Public License, Version 3.0 (GPLv3).
 
+import AppKit
 import CodeCatchCore
 import Foundation
 import Testing
@@ -72,7 +73,10 @@ struct AetherEngineTests {
         try model.saveAccount(gmail, password: "", refreshToken: "rt-1")
         #expect(model.accounts.count == 1)
         #expect(model.accounts[0].usesSignIn)
-        #expect(secrets.get(gmail.refreshTokenKey) == "rt-1")
+        let storedToken = secrets.get(gmail.refreshTokenKey)
+        #expect(storedToken?.hasPrefix("aether.v2.") == true)
+        #expect(storedToken != "rt-1")
+        #expect(try AetherVaultCrypto.openString(storedToken ?? "", domain: .mailSecret, recordKey: gmail.refreshTokenKey, using: secrets) == "rt-1")
 
         let duplicate = MailAccount(label: "Gmail 2", host: MailAccount.gmailHost, user: "alice@gmail.com")
         #expect(throws: AetherAppModel.AccountSaveError.self) {
@@ -84,9 +88,27 @@ struct AetherEngineTests {
         #expect(secrets.get(gmail.refreshTokenKey) == nil)
     }
 
-    @Test("PKCE OAuth callback validation rejects state mismatches, fragments, and errors")
-    func oauthCallbackValidation() throws {
-        let google = MailOAuth.google
+    @Test("OAuth defaults strip CodeCatch IDs and encrypted custom AETHER client resolution works")
+    func oauthCallbackValidationAndCustomClients() throws {
+        // Zero upstream CodeCatch IDs in compiled defaults
+        #expect(!MailOAuth.google.clientID.contains("374242175460"))
+        #expect(!MailOAuth.microsoft.clientID.contains("946bd1c2"))
+        #expect(!MailOAuth.microsoft.redirect.contains("codecatch"))
+        #expect(!MailOAuth.google.isConfigured)
+        #expect(!MailOAuth.microsoft.isConfigured)
+
+        let secrets = AetherSecretStore.inMemory()
+        let clientID = "999999999999-aethertestclient123.apps.googleusercontent.com"
+        try MailOAuth.saveCustomCredential(clientID: clientID, for: .google, in: secrets)
+
+        let rawStored = secrets.get(MailOAuth.ProviderKind.google.secretStorageKey)
+        #expect(rawStored?.hasPrefix("aether.v2.") == true)
+
+        let google = MailOAuth.resolved(for: .google, in: secrets)
+        #expect(google.isConfigured)
+        #expect(google.clientID == clientID)
+        #expect(google.redirect == "com.googleusercontent.apps.999999999999-aethertestclient123:/oauth2redirect")
+
         let good = google.redirect + "?state=abc123&code=auth_code_99"
         #expect(try google.authorizationCode(in: good, state: "abc123") == "auth_code_99")
         #expect(try google.authorizationCode(in: good, state: "wrong") == nil)
@@ -95,6 +117,73 @@ struct AetherEngineTests {
         #expect(throws: MailOAuth.Failure.self) {
             _ = try google.authorizationCode(in: denied, state: "abc123")
         }
+    }
+
+    @Test("AEAD envelope crypto binds domains/keys and UnlockPolicy + AgentStore fail closed on tampering")
+    @MainActor
+    func vaultCryptoAndTamperFailClosed() throws {
+        let secrets = AetherSecretStore.inMemory()
+        let sealed = try AetherVaultCrypto.sealString("otpauth://totp/Acme?secret=JBSWY3DPEHPK3PXP", domain: .vaultCodes, recordKey: "bitwarden.codes", using: secrets)
+        #expect(AetherVaultCrypto.isSealed(sealed))
+        #expect(!sealed.contains("JBSWY3DPEHPK3PXP"))
+        #expect(try AetherVaultCrypto.openString(sealed, domain: .vaultCodes, recordKey: "bitwarden.codes", using: secrets).contains("JBSWY3DPEHPK3PXP"))
+
+        // Wrong recordKey or tampered payload must fail closed
+        #expect(throws: AetherVaultCrypto.Failure.self) {
+            _ = try AetherVaultCrypto.openString(sealed, domain: .vaultCodes, recordKey: "other.key", using: secrets)
+        }
+        #expect(throws: AetherVaultCrypto.Failure.self) {
+            _ = try AetherVaultCrypto.openString(sealed, domain: .agentConfig, recordKey: "bitwarden.codes", using: secrets)
+        }
+
+        // Tampered unlock-with-mac fails closed to false
+        let policy = VaultStorage.unlockPolicy(secrets: secrets)
+        try secrets.set("aether.v2." + Data("tampered-ciphertext-bytes".utf8).base64EncodedString(), for: "unlock-with-mac")
+        policy.restore()
+        #expect(!policy.enabled)
+
+        // AgentConfig & Audit log encrypt at rest cleanly
+        let cfg = AgentConfig(enabled: true, rules: [], allowAll: true, links: false, releases: [])
+        try AgentStore.save(cfg, to: secrets)
+        let rawAgent = secrets.get("agent-access") ?? ""
+        #expect(rawAgent.hasPrefix("aether.v2."))
+        #expect(!rawAgent.contains("allowAll"))
+        #expect(try AgentStore.load(from: secrets) == cfg)
+    }
+
+    @Test("Icon disk cache uses HMAC-hashed filenames so service domains never leak on disk")
+    @MainActor
+    func iconStoreHashedDiskCache() async throws {
+        let suite = "app.getdroppy.droplet.aether.icontest.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        AetherPrefs.register(in: defaults)
+        defaults.set(true, forKey: AetherPrefs.serviceIcons)
+        let secrets = AetherSecretStore.inMemory()
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("AetherIconHash.\(UUID().uuidString)")
+        defer {
+            defaults.removePersistentDomain(forName: suite)
+            try? FileManager.default.removeItem(at: tempDir)
+        }
+
+        // Minimal 16x16 white PNG generated via NSBitmapImageRep
+        let rep = NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: 32, pixelsHigh: 32, bitsPerSample: 8, samplesPerPixel: 4,
+            hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 128, bitsPerPixel: 32
+        )!
+        rep.bitmapData!.initialize(repeating: 255, count: 32 * 128)
+        let pngData = rep.representation(using: .png, properties: [:])!
+
+        let store = AetherIconStore(defaults: defaults, secrets: secrets, folder: tempDir) { url in
+            let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "image/png"])!
+            return (pngData, response)
+        }
+        await store.load("secret-bank.example")
+        #expect(store.icon(for: "secret-bank.example") != nil)
+
+        let cachedFiles = try FileManager.default.contentsOfDirectory(atPath: tempDir.path)
+        #expect(cachedFiles.count == 1)
+        #expect(cachedFiles[0].hasSuffix(".png"))
+        #expect(!cachedFiles[0].contains("secret-bank"))
     }
 
     @Test("Ingestion, auto-copy, Not a Code, Ignored Senders, and RecoveryInbox work end to end")

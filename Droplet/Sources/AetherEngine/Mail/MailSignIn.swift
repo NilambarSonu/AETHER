@@ -13,12 +13,15 @@ public final class MailSignIn: ObservableObject {
     private let authenticate: (MailAccount) async throws -> MailOAuth.Grant
 
     public init(
-        authenticate: @escaping (MailAccount) async throws -> MailOAuth.Grant = {
-            guard let provider = $0.provider else { throw MailOAuth.Failure.denied("this server has no sign-in") }
-            return try await provider.signIn(email: $0.user)
-        }
+        secrets: AetherSecretStore = .keychain,
+        authenticate: ((MailAccount) async throws -> MailOAuth.Grant)? = nil
     ) {
-        self.authenticate = authenticate
+        self.authenticate = authenticate ?? { account in
+            guard let provider = account.resolvedProvider(in: secrets) else {
+                throw MailOAuth.Failure.denied("this server has no OAuth sign-in")
+            }
+            return try await provider.signIn(email: account.user)
+        }
     }
 
     public func token(for account: MailAccount) -> String? {

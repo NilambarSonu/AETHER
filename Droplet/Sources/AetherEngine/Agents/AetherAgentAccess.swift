@@ -91,6 +91,7 @@ public final class AetherAgentAccess: ObservableObject {
     private let load: () throws -> AgentConfig
     private let save: (AgentConfig) throws -> Void
     private let defaults: UserDefaults
+    private let secrets: AetherSecretStore
     private let now: () -> Date
 
     private var waiters: [UUID: CheckedContinuation<Void, Never>] = [:]
@@ -113,6 +114,7 @@ public final class AetherAgentAccess: ObservableObject {
         load: @escaping () throws -> AgentConfig,
         save: @escaping (AgentConfig) throws -> Void,
         defaults: UserDefaults,
+        secrets: AetherSecretStore = .keychain,
         now: @escaping () -> Date = Date.init
     ) {
         self.items = items
@@ -122,8 +124,9 @@ public final class AetherAgentAccess: ObservableObject {
         self.load = load
         self.save = save
         self.defaults = defaults
+        self.secrets = secrets
         self.now = now
-        log = defaults.data(forKey: Self.logKey).flatMap { try? JSONDecoder().decode([AgentLogEntry].self, from: $0) } ?? []
+        self.log = AgentAuditStore.load(from: secrets, migratingFrom: defaults, legacyKey: Self.logKey)
     }
 
     public func restore() {
@@ -428,12 +431,14 @@ public final class AetherAgentAccess: ObservableObject {
 
     private func saveLog() {
         log = Array(log.prefix(50))
-        defaults.set(try? JSONEncoder().encode(log), forKey: Self.logKey)
+        defaults.removeObject(forKey: Self.logKey)
+        AgentAuditStore.save(log, to: secrets)
     }
 
     public func clearLog() {
         log = []
         defaults.removeObject(forKey: Self.logKey)
+        AgentAuditStore.clear(in: secrets)
     }
 
     public static func wire(_ item: CodeItem) -> AgentItem {

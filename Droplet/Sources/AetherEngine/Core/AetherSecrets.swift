@@ -75,11 +75,18 @@ public final class AetherSecretStore: @unchecked Sendable {
         }
         guard case .keychain(let service) = backend else { return }
         let data = Data(value.utf8)
-        let status = update(Self.query(account, service: service) as CFDictionary, [kSecValueData as String: data] as CFDictionary)
+        let status = update(
+            Self.query(account, service: service) as CFDictionary,
+            [
+                kSecValueData as String: data,
+                kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+            ] as CFDictionary
+        )
         if status == errSecSuccess { return }
         guard status == errSecItemNotFound else { throw Failure(status: status) }
         var item = Self.query(account, service: service)
         item[kSecValueData as String] = data
+        item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         let added = add(item as CFDictionary, nil)
         guard added == errSecSuccess else { throw Failure(status: added) }
     }

@@ -5,17 +5,48 @@ import AppKit
 import AuthenticationServices
 import CryptoKit
 
-/// PKCE OAuth flow for Google Gmail (read-only) and Microsoft Graph (Mail.Read) via `ASWebAuthenticationSession`.
+/// PKCE OAuth flow for Google Gmail (read-only) and Microsoft Graph (`Mail.Read`) via `ASWebAuthenticationSession`.
+///
+/// Upstream third-party CodeCatch OAuth client identifiers were intentionally removed so AETHER never
+/// impersonates or routes users through CodeCatch's GCP / Microsoft Entra projects. Configure AETHER's
+/// own Client IDs either at build time (`bundledGoogleClientID` / `bundledMicrosoftClientID`) or directly
+/// in **Droppy → Settings → Droplets → AETHER → Account OAuth Configuration** (stored encrypted in Keychain).
 public struct MailOAuth: Sendable {
+    public enum ProviderKind: String, Sendable {
+        case google
+        case microsoft
+
+        public var secretStorageKey: String {
+            "oauth.client.\(rawValue)"
+        }
+    }
+
+    public struct CustomClientCredential: Codable, Equatable, Sendable {
+        public let clientID: String
+        public let redirectURI: String?
+
+        public init(clientID: String, redirectURI: String? = nil) {
+            self.clientID = clientID
+            self.redirectURI = redirectURI
+        }
+    }
+
     public enum Failure: LocalizedError, Sendable {
+        case notConfigured(String)
         case denied(String)
         case noMailAccess(String)
         case token(String)
+
         public var errorDescription: String? {
             switch self {
-            case .denied(let why): "Sign-in was not completed (\(why))."
-            case .noMailAccess(let name): "AETHER needs to read your mail to find codes. Sign in with \(name) again and allow it."
-            case .token(let why): "The sign-in was refused (\(why)). Sign in again."
+            case .notConfigured(let name):
+                "AETHER \(name) OAuth Client ID is not configured yet. Add your AETHER \(name) Client ID below or use an App Password."
+            case .denied(let why):
+                "Sign-in was not completed (\(why))."
+            case .noMailAccess(let name):
+                "AETHER needs read-only mail permission to detect verification codes. Sign in with \(name) again and allow mail access."
+            case .token(let why):
+                "The sign-in session was refused (\(why)). Sign in again."
             }
         }
     }
@@ -30,6 +61,7 @@ public struct MailOAuth: Sendable {
         }
     }
 
+    public let kind: ProviderKind
     public let name: String
     public let clientID: String
     public let redirect: String
@@ -40,40 +72,140 @@ public struct MailOAuth: Sendable {
     public let revokeURL: String?
     public let address: @Sendable (String) async throws -> String
 
+    /// Compiled-in AETHER OAuth Client IDs (empty until configured with first-party AETHER credentials).
+    public static let bundledGoogleClientID = ""
+    public static let bundledMicrosoftClientID = ""
+    public static let microsoftDefaultRedirect = "app.getdroppy.droplet.aether://auth"
+
+    public var isConfigured: Bool {
+        !clientID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !redirect.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     /// Provides the presentation anchor window (captured from Droppy Settings' SwiftUI view)
     /// without enumerating `NSApp.windows`.
     @MainActor public static var anchorProvider: (@MainActor () -> ASPresentationAnchor?) = {
         NSApp.keyWindow ?? NSApp.mainWindow
     }
 
-    public static let google = MailOAuth(
-        name: "Google",
-        clientID: "374242175460-a4bpd97sclaa5k4bpc598ei64n67om6l.apps.googleusercontent.com",
-        redirect: "com.googleusercontent.apps.374242175460-a4bpd97sclaa5k4bpc598ei64n67om6l:/oauth2redirect",
-        scope: "https://www.googleapis.com/auth/gmail.readonly",
-        mailScope: "https://www.googleapis.com/auth/gmail.readonly",
-        authorizeURL: "https://accounts.google.com/o/oauth2/v2/auth",
-        tokenURL: "https://oauth2.googleapis.com/token",
-        revokeURL: "https://oauth2.googleapis.com/revoke",
-        address: { try await GmailAPI(auth: .issued($0)).emailAddress() }
-    )
+    public static let google = MailOAuth.google(clientID: bundledGoogleClientID)
+    public static let microsoft = MailOAuth.microsoft(clientID: bundledMicrosoftClientID)
 
-    public static let microsoft = MailOAuth(
-        name: "Microsoft",
-        clientID: "946bd1c2-64b4-443f-a51b-96f41bed07d1",
-        redirect: "msauth.com.uros.codecatch://auth",
-        scope: "offline_access User.Read Mail.Read",
-        mailScope: "Mail.Read",
-        authorizeURL: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
-        tokenURL: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
-        revokeURL: nil,
-        address: { try await OutlookAPI(auth: .issued($0)).emailAddress() }
-    )
+    /// Builds a Google Gmail OAuth descriptor with automatic iOS-type reverse-DNS redirect URI derivation.
+    public static func google(clientID: String, redirectURI: String? = nil) -> MailOAuth {
+        let trimmed = clientID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let derivedRedirect = redirectURI?.trimmingCharacters(in: .whitespacesAndNewlines)
+            .nonEmpty ?? deriveGoogleRedirectURI(for: trimmed)
+        return MailOAuth(
+            kind: .google,
+            name: "Google",
+            clientID: trimmed,
+            redirect: derivedRedirect,
+            scope: "https://www.googleapis.com/auth/gmail.readonly",
+            mailScope: "https://www.googleapis.com/auth/gmail.readonly",
+            authorizeURL: "https://accounts.google.com/o/oauth2/v2/auth",
+            tokenURL: "https://oauth2.googleapis.com/token",
+            revokeURL: "https://oauth2.googleapis.com/revoke",
+            address: { try await GmailAPI(auth: .issued($0)).emailAddress() }
+        )
+    }
+
+    /// Builds a Microsoft Graph OAuth descriptor using AETHER's own bundle scheme by default.
+    public static func microsoft(clientID: String, redirectURI: String? = nil) -> MailOAuth {
+        let trimmed = clientID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedRedirect = redirectURI?.trimmingCharacters(in: .whitespacesAndNewlines)
+            .nonEmpty ?? microsoftDefaultRedirect
+        return MailOAuth(
+            kind: .microsoft,
+            name: "Microsoft",
+            clientID: trimmed,
+            redirect: resolvedRedirect,
+            scope: "offline_access User.Read Mail.Read",
+            mailScope: "Mail.Read",
+            authorizeURL: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+            tokenURL: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+            revokeURL: nil,
+            address: { try await OutlookAPI(auth: .issued($0)).emailAddress() }
+        )
+    }
+
+    public static func deriveGoogleRedirectURI(for clientID: String) -> String {
+        let trimmed = clientID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "app.getdroppy.droplet.aether:/oauth2redirect" }
+        let suffix = ".apps.googleusercontent.com"
+        let prefix = trimmed.hasSuffix(suffix) ? String(trimmed.dropLast(suffix.count)) : trimmed
+        return "com.googleusercontent.apps.\(prefix):/oauth2redirect"
+    }
+
+    public static func resolved(for kind: ProviderKind, in secrets: AetherSecretStore = .keychain) -> MailOAuth {
+        let custom = customCredential(for: kind, in: secrets)
+        switch kind {
+        case .google:
+            return google(
+                clientID: custom?.clientID ?? bundledGoogleClientID,
+                redirectURI: custom?.redirectURI
+            )
+        case .microsoft:
+            return microsoft(
+                clientID: custom?.clientID ?? bundledMicrosoftClientID,
+                redirectURI: custom?.redirectURI
+            )
+        }
+    }
+
+    public static func customCredential(for kind: ProviderKind, in secrets: AetherSecretStore = .keychain) -> CustomClientCredential? {
+        guard let stored = secrets.get(kind.secretStorageKey) else { return nil }
+        let data: Data
+        if AetherVaultCrypto.isSealed(stored) {
+            guard let opened = try? AetherVaultCrypto.open(
+                stored,
+                domain: .oauthClient,
+                recordKey: kind.secretStorageKey,
+                using: secrets
+            ) else { return nil }
+            data = opened
+        } else {
+            data = Data(stored.utf8)
+        }
+        guard let cred = try? JSONDecoder().decode(CustomClientCredential.self, from: data),
+            !cred.clientID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else { return nil }
+        return cred
+    }
+
+    public static func saveCustomCredential(
+        clientID: String,
+        redirectURI: String? = nil,
+        for kind: ProviderKind,
+        in secrets: AetherSecretStore = .keychain
+    ) throws {
+        let trimmedID = clientID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedID.isEmpty else {
+            try clearCustomCredential(for: kind, in: secrets)
+            return
+        }
+        let cleanedRedirect = redirectURI?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty
+        let payload = try JSONEncoder().encode(CustomClientCredential(clientID: trimmedID, redirectURI: cleanedRedirect))
+        let sealed = try AetherVaultCrypto.seal(
+            payload,
+            domain: .oauthClient,
+            recordKey: kind.secretStorageKey,
+            using: secrets
+        )
+        try secrets.set(sealed, for: kind.secretStorageKey)
+    }
+
+    public static func clearCustomCredential(for kind: ProviderKind, in secrets: AetherSecretStore = .keychain) throws {
+        try secrets.remove(kind.secretStorageKey)
+    }
 
     @MainActor
     public func signIn(email: String, anchor: ASPresentationAnchor? = nil) async throws -> Grant {
+        guard isConfigured else {
+            throw Failure.notConfigured(name)
+        }
         let verifier = Self.randomString(64)
-        let state = Self.randomString(24)
+        let state = Self.randomString(32)
         var url = URLComponents(string: authorizeURL)!
         url.queryItems =
             [
@@ -118,11 +250,27 @@ public struct MailOAuth: Sendable {
     }()
 
     public func accessToken(tokenKey key: String, secrets: AetherSecretStore = .keychain) async throws -> String {
+        guard isConfigured else {
+            throw Failure.notConfigured(name)
+        }
         if let hit = Self.lock.withLock({ Self.cache[key] }), hit.expires > Date().addingTimeInterval(60) { return hit.token }
-        guard let refresh = try secrets.read(key) else { throw Failure.token("no refresh token") }
+        guard let stored = try secrets.read(key) else { throw Failure.token("no refresh token") }
+        let refresh: String
+        if AetherVaultCrypto.isSealed(stored) {
+            refresh = try AetherVaultCrypto.openString(stored, domain: .mailSecret, recordKey: key, using: secrets)
+        } else {
+            refresh = stored
+            if let sealed = try? AetherVaultCrypto.sealString(stored, domain: .mailSecret, recordKey: key, using: secrets) {
+                try? secrets.set(sealed, for: key)
+            }
+        }
         let tokens = try await tokenRequest(["refresh_token": refresh, "client_id": clientID, "grant_type": "refresh_token"])
         guard let token = tokens["access_token"] as? String else { throw Failure.token("no access token") }
-        if let next = tokens["refresh_token"] as? String, next != refresh { try? secrets.set(next, for: key) }
+        if let next = tokens["refresh_token"] as? String, next != refresh {
+            if let sealed = try? AetherVaultCrypto.sealString(next, domain: .mailSecret, recordKey: key, using: secrets) {
+                try? secrets.set(sealed, for: key)
+            }
+        }
         let lifetime = (tokens["expires_in"] as? Double) ?? 3600
         Self.lock.withLock { Self.cache[key] = (token, Date().addingTimeInterval(lifetime)) }
         return token
@@ -130,6 +278,11 @@ public struct MailOAuth: Sendable {
 
     public static func forgetAccessToken(tokenKey key: String) {
         lock.withLock { cache[key] = nil }
+    }
+
+    /// Wipes all cached short-lived OAuth bearer tokens from volatile memory on sleep, lock, or deactivation.
+    public static func clearAllAccessTokens() {
+        lock.withLock { cache.removeAll() }
     }
 
     public func revoke(_ refresh: String) async {
@@ -202,19 +355,21 @@ public struct MailOAuth: Sendable {
     }
 
     private static func randomString(_ n: Int) -> String {
-        let chars = Array("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
-        return String((0..<n).map { _ in chars[Int.random(in: 0..<chars.count)] })
+        AetherVaultCrypto.randomURLSafeString(length: n)
     }
 }
 
 public enum MailAPIAuth: Sendable {
-    case saved(MailOAuth, tokenKey: String, secrets: AetherSecretStore = .keychain)
+    case saved(MailOAuth.ProviderKind, tokenKey: String, secrets: AetherSecretStore = .keychain)
     case issued(String)
 
     public func accessToken() async throws -> String {
         switch self {
-        case .saved(let oauth, let key, let secrets): try await oauth.accessToken(tokenKey: key, secrets: secrets)
-        case .issued(let token): token
+        case .saved(let kind, let key, let secrets):
+            let oauth = MailOAuth.resolved(for: kind, in: secrets)
+            return try await oauth.accessToken(tokenKey: key, secrets: secrets)
+        case .issued(let token):
+            return token
         }
     }
 
@@ -258,7 +413,15 @@ private final class SignInSheet: NSObject, ASWebAuthenticationPresentationContex
 
 extension Data {
     fileprivate var base64URL: String {
-        base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_")
+        base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: "=", with: "")
+    }
+}
+
+extension String {
+    fileprivate var nonEmpty: String? {
+        isEmpty ? nil : self
     }
 }

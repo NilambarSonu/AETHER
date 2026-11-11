@@ -23,11 +23,11 @@ struct AgentsSettingsPage: View {
                 } content: {
                     DropletSettingsCard {
                         let site = item.domain ?? pending.query.label
-                        DropletControlRow(
+                        AetherSettingsControlRow(
                             title: "\(pending.caller.name) wants \(site) \(item.isLink ? "sign-in link" : "code")",
+                            subtitle: "From \(item.service) · Touch ID approval required",
                             icon: "hand.raised.fill",
-                            iconColor: .orange,
-                            infoTip: "From \(item.service). Touch ID or password approval is required before sharing."
+                            iconColor: .orange
                         ) {
                             HStack(spacing: 8) {
                                 Button("Deny") { model.agents.deny() }
@@ -49,22 +49,22 @@ struct AgentsSettingsPage: View {
                 settingsSectionHeader("Droppy MCP agent access")
             } content: {
                 DropletSettingsCard {
-                    DropletToggleRow(
+                    AetherSettingsToggleRow(
                         title: "Allow AI agents to request codes",
                         icon: "terminal.fill",
                         iconColor: .indigo,
-                        subtitle: "Exposes droplet_aether_get_code, droplet_aether_get_status, and droplet_aether_list_recent_services through Droppy's built-in MCP server.",
+                        infoTip: "Exposes droplet_aether_get_code, droplet_aether_get_status, and droplet_aether_list_recent_services through Droppy's MCP server.",
                         isOn: Binding(
                             get: { model.agents.config.enabled },
                             set: { on in Task { await model.agents.setEnabled(on) } }
                         )
                     )
 
-                    DropletToggleRow(
+                    AetherSettingsToggleRow(
                         title: "Allow sharing sign-in links",
                         icon: "link",
                         iconColor: .teal,
-                        subtitle: "Lets approved requests receive DMARC-verified destination-matched sign-in links. Password-reset links are never shared.",
+                        infoTip: "Releases DMARC-verified, destination-matched sign-in links. Password-reset links are always blocked.",
                         isOn: Binding(
                             get: { model.agents.config.links },
                             set: { on in Task { await model.agents.setLinks(on) } }
@@ -72,20 +72,22 @@ struct AgentsSettingsPage: View {
                     )
                     .disabled(!model.agents.config.enabled)
 
-                    DropletToggleRow(
+                    AetherSettingsToggleRow(
                         title: "Allow all requests without asking",
                         icon: "bolt.shield.fill",
                         iconColor: .orange,
-                        subtitle: "Automatically releases domain-matched codes up to 20 per hour while enabled. Turn off any time.",
+                        infoTip: "Auto-releases domain-matched codes up to 20 per hour. Config is AEAD tamper-sealed in Keychain.",
                         isOn: Binding(
                             get: { model.agents.config.allowAll },
                             set: { on in Task { await model.agents.setAllowAll(on) } }
                         )
                     )
                     .disabled(!model.agents.config.enabled)
+                }
 
+                DropletSettingsCard {
                     AetherWarningRow(
-                        message: "Security guardrails: 20 automatic releases/hour max, DMARC alignment enforced on email, password-reset links blocked, and automatic shutoff after 3 consecutive denials. Remember to enable Droppy's built-in MCP server in Settings → Droplet Store → MCP.",
+                        message: "Security guardrails: 20 automatic releases/hour max, DMARC alignment checked on email, password-reset links blocked, and auto-lock after 3 consecutive denials.",
                         calm: true
                     )
                 }
@@ -98,21 +100,21 @@ struct AgentsSettingsPage: View {
                     ForEach(AgentSkillKind.allCases) { kind in
                         let installed = kind.isInstalled(home: homeURL)
                         let state = skillStates[kind] ?? kind.state(home: homeURL)
-                        DropletControlRow(
+                        AetherSettingsControlRow(
                             title: kind.name,
                             icon: state == .connected ? "checkmark.circle.fill" : "wrench.and.screwdriver.fill",
-                            iconColor: state == .connected ? .green : .secondary,
-                            infoTip: "Writes the aether-otp skill into \(kind.name)'s local skills folder pointing to Droppy's native MCP tools."
+                            iconColor: state == .connected ? .green : .gray,
+                            infoTip: "Writes the aether-otp skill into \(kind.name)'s local skills folder pointing to Droppy MCP."
                         ) {
                             skillControls(kind: kind, installed: installed, state: state)
                         }
                     }
 
-                    DropletControlRow(
+                    AetherSettingsControlRow(
                         title: "Agent prompt snippet",
-                        icon: "doc.on.clipboard",
+                        icon: "doc.on.clipboard.fill",
                         iconColor: .blue,
-                        infoTip: "Copies AETHER's MCP instructions for custom agent system prompts."
+                        infoTip: "Copies AETHER's MCP usage snippet for custom agent prompts."
                     ) {
                         Button(copiedFeedback ? "Copied!" : "Copy Instructions") {
                             droplet.copyText(AgentSkillKind.instructionsMarkdown)
@@ -137,22 +139,32 @@ struct AgentsSettingsPage: View {
                         subtitle: rulesSubtitle,
                         page: AetherSettingsRoute.agentRules.rawValue
                     ) {
-                        AetherSymbolTile(symbol: "checkmark.shield.fill", color: .green, size: AetherSymbolTile.settingsLinkSize)
+                        AetherSettingsIconBadge(
+                            symbol: "checkmark.shield.fill",
+                            top: Color(red: 0.22, green: 0.78, blue: 0.36),
+                            bottom: Color(red: 0.10, green: 0.56, blue: 0.24),
+                            size: AetherSymbolTile.settingsLinkSize
+                        )
                     }
 
                     DropletSettingsPageLink(
-                        "Request log",
+                        "Encrypted request log",
                         subtitle: historySubtitle,
                         page: AetherSettingsRoute.agentHistory.rawValue
                     ) {
-                        AetherSymbolTile(symbol: "list.bullet.rectangle.portrait.fill", color: .indigo, size: AetherSymbolTile.settingsLinkSize)
+                        AetherSettingsIconBadge(
+                            symbol: "list.bullet.rectangle.portrait.fill",
+                            top: Color(red: 0.40, green: 0.38, blue: 0.96),
+                            bottom: Color(red: 0.24, green: 0.22, blue: 0.78),
+                            size: AetherSymbolTile.settingsLinkSize
+                        )
                     }
                 }
             }
 
             if let errorMessage = errorMessage ?? model.agents.error {
                 DropletSettingsSection {
-                    settingsSectionHeader("Error")
+                    settingsSectionHeader("Attention")
                 } content: {
                     DropletSettingsCard {
                         AetherWarningRow(message: errorMessage)
@@ -250,11 +262,12 @@ struct AgentRulesSettingsPage: View {
                         )
                     } else {
                         ForEach(rules) { rule in
-                            DropletControlRow(
+                            AetherSettingsControlRow(
                                 title: "\(rule.app.name) · \(rule.site ?? "All sites")",
+                                subtitle: rule.added.formatted(date: .abbreviated, time: .shortened),
                                 icon: "checkmark.shield.fill",
                                 iconColor: .green,
-                                infoTip: "Bundle ID: \(rule.app.id) · Added \(rule.added.formatted(date: .abbreviated, time: .shortened))"
+                                infoTip: "Bundle ID: \(rule.app.id)"
                             ) {
                                 Button("Revoke") {
                                     model.agents.removeRule(rule.id)
@@ -264,7 +277,7 @@ struct AgentRulesSettingsPage: View {
                             }
                         }
 
-                        DropletControlRow(
+                        AetherSettingsControlRow(
                             title: "Revoke all rules",
                             icon: "trash.fill",
                             iconColor: .red
@@ -302,23 +315,19 @@ struct AgentHistorySettingsPage: View {
                         AetherWarningRow(message: "No agent requests logged yet.", calm: true)
                     } else {
                         ForEach(model.agents.log) { entry in
-                            DropletControlRow(
+                            AetherSettingsControlRow(
                                 title: "\(entry.caller)\(entry.site.isEmpty ? "" : " · \(entry.site)")",
-                                icon: "terminal",
-                                iconColor: .secondary
+                                subtitle: entry.date.formatted(.relative(presentation: .named)),
+                                icon: "terminal.fill",
+                                iconColor: .indigo
                             ) {
-                                VStack(alignment: .trailing, spacing: 2) {
-                                    Text(entry.outcome)
-                                        .font(.caption)
-                                        .foregroundStyle(.primary)
-                                    Text(entry.date.formatted(.relative(presentation: .named)))
-                                        .font(.caption2)
-                                        .foregroundStyle(.secondary)
-                                }
+                                Text(entry.outcome)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
                             }
                         }
 
-                        DropletControlRow(
+                        AetherSettingsControlRow(
                             title: "Clear log",
                             icon: "trash.fill",
                             iconColor: .gray
@@ -346,11 +355,11 @@ struct RecoveryEmailsSettingsPage: View {
             } content: {
                 DropletSettingsCard {
                     if !model.isUnlocked {
-                        DropletControlRow(
+                        AetherSettingsControlRow(
                             title: "Recovery inbox locked",
+                            subtitle: "Unmatched emails from the last 30 minutes stay locked behind Touch ID.",
                             icon: "lock.fill",
-                            iconColor: .orange,
-                            infoTip: "Unmatched emails from the last 30 minutes stay locked behind Touch ID or your password."
+                            iconColor: .orange
                         ) {
                             Button("Unlock…") {
                                 model.unlocked {}
@@ -399,7 +408,7 @@ struct RecoveryEmailsSettingsPage: View {
                             .padding(.vertical, 6)
                         }
 
-                        DropletControlRow(
+                        AetherSettingsControlRow(
                             title: "Clear recovery emails",
                             icon: "trash.fill",
                             iconColor: .gray

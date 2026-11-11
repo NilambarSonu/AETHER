@@ -24,16 +24,19 @@ public final class AetherIconStore: ObservableObject {
     private var inFlightTasks: [String: Task<Void, Never>] = [:]
 
     private let defaults: UserDefaults
+    private let secrets: AetherSecretStore
     private let folder: URL
     private let fetch: (URL) async throws -> (Data, URLResponse)
 
     public init(
         defaults: UserDefaults,
+        secrets: AetherSecretStore = .keychain,
         folder: URL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("AETHER/Icons", isDirectory: true),
         fetch: ((URL) async throws -> (Data, URLResponse))? = nil
     ) {
         self.defaults = defaults
+        self.secrets = secrets
         self.folder = folder
         self.fetch = fetch ?? AetherIconStore.download
     }
@@ -42,6 +45,10 @@ public final class AetherIconStore: ObservableObject {
         for task in inFlightTasks.values { task.cancel() }
         inFlightTasks.removeAll()
         requested.removeAll()
+    }
+
+    public func prefetch(domain: String?) {
+        _ = icon(for: domain)
     }
 
     private static let session: URLSession = {
@@ -70,9 +77,10 @@ public final class AetherIconStore: ObservableObject {
     public func load(_ domain: String) async {
         defer { if !defaults.bool(forKey: AetherPrefs.serviceIcons) { requested.remove(domain) } }
         guard defaults.bool(forKey: AetherPrefs.serviceIcons), ServiceIdentity.isHostname(domain) else { return }
-        let touch = folder.appendingPathComponent("\(domain).touch.png")
-        let plain = folder.appendingPathComponent("\(domain).png")
-        let miss = folder.appendingPathComponent("\(domain).miss")
+        let stem = (try? AetherVaultCrypto.hmacHex(domain, domain: .iconCacheSalt, recordKey: "icons.v2", using: secrets)) ?? domain
+        let touch = folder.appendingPathComponent("\(stem).touch.png")
+        let plain = folder.appendingPathComponent("\(stem).png")
+        let miss = folder.appendingPathComponent("\(stem).miss")
         for url in [touch, plain] {
             if let image = NSImage(contentsOf: url) {
                 icons[domain] = Icon(image)

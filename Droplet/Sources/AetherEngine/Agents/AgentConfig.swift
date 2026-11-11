@@ -75,11 +75,58 @@ public enum AgentStore {
     private static let key = "agent-access"
 
     public static func load(from secrets: AetherSecretStore = .keychain) throws -> AgentConfig {
-        guard let json = try secrets.read(key) else { return AgentConfig() }
-        return try JSONDecoder().decode(AgentConfig.self, from: Data(json.utf8))
+        guard let stored = try secrets.read(key) else { return AgentConfig() }
+        if AetherVaultCrypto.isSealed(stored) {
+            let data = try AetherVaultCrypto.open(stored, domain: .agentConfig, recordKey: key, using: secrets)
+            return try JSONDecoder().decode(AgentConfig.self, from: data)
+        }
+        let legacyData = Data(stored.utf8)
+        let decoded = try JSONDecoder().decode(AgentConfig.self, from: legacyData)
+        if let sealed = try? AetherVaultCrypto.seal(legacyData, domain: .agentConfig, recordKey: key, using: secrets) {
+            try? secrets.set(sealed, for: key)
+        }
+        return decoded
     }
 
     public static func save(_ config: AgentConfig, to secrets: AetherSecretStore = .keychain) throws {
-        try secrets.set(String(decoding: try JSONEncoder().encode(config), as: UTF8.self), for: key)
+        let data = try JSONEncoder().encode(config)
+        let sealed = try AetherVaultCrypto.seal(data, domain: .agentConfig, recordKey: key, using: secrets)
+        try secrets.set(sealed, for: key)
+    }
+}
+
+public enum AgentAuditStore {
+    private static let key = "agent-audit-log"
+
+    public static func load(from secrets: AetherSecretStore, migratingFrom defaults: UserDefaults, legacyKey: String) -> [AgentLogEntry] {
+        if let stored = try? secrets.read(key), AetherVaultCrypto.isSealed(stored),
+            let data = try? AetherVaultCrypto.open(stored, domain: .agentAuditLog, recordKey: key, using: secrets),
+            let entries = try? JSONDecoder().decode([AgentLogEntry].self, from: data)
+        {
+            if defaults.object(forKey: legacyKey) != nil {
+                defaults.removeObject(forKey: legacyKey)
+            }
+            return entries
+        }
+
+        if let legacyData = defaults.data(forKey: legacyKey),
+            let legacyEntries = try? JSONDecoder().decode([AgentLogEntry].self, from: legacyData)
+        {
+            save(legacyEntries, to: secrets)
+            defaults.removeObject(forKey: legacyKey)
+            return legacyEntries
+        }
+        return []
+    }
+
+    public static func save(_ entries: [AgentLogEntry], to secrets: AetherSecretStore) {
+        guard let data = try? JSONEncoder().encode(entries),
+            let sealed = try? AetherVaultCrypto.seal(data, domain: .agentAuditLog, recordKey: key, using: secrets)
+        else { return }
+        try? secrets.set(sealed, for: key)
+    }
+
+    public static func clear(in secrets: AetherSecretStore) {
+        try? secrets.remove(key)
     }
 }
