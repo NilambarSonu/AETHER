@@ -53,7 +53,7 @@ final class AetherHUDBridge {
                     item: item,
                     model: model,
                     icons: model.icons,
-                    onCopyOrOpen: { [weak model, weak self, weak host] in
+                    onCopyOrOpen: { [weak model, weak self] in
                         model?.unlocked { [weak model, weak self] in
                             guard let model else { return }
                             if item.isLink {
@@ -62,12 +62,12 @@ final class AetherHUDBridge {
                                 model.copy(item, userInitiated: false)
                                 self?.presentCopiedHUD(service: item.service)
                             }
-                            host?.hud.dismiss(id: hudID)
+                            self?.host?.hud.dismiss(id: hudID)
                         }
                     },
-                    onOpenShelf: { [weak host] in
-                        host?.hud.dismiss(id: hudID)
-                        _ = host?.shelf.open(revealing: AetherDroplet.widgetID)
+                    onOpenShelf: { [weak self] in
+                        self?.host?.hud.dismiss(id: hudID)
+                        _ = self?.host?.shelf.open(revealing: AetherDroplet.widgetID)
                     }
                 )
             }

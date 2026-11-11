@@ -612,3 +612,11 @@ extension SourceStatus {
         }
     }
 }
+
+extension Date {
+    var aetherDayTitle: String {
+        if Calendar.current.isDateInToday(self) { return "Today" }
+        if Calendar.current.isDateInYesterday(self) { return "Yesterday" }
+        return formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
+    }
+}
