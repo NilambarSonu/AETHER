@@ -35,7 +35,7 @@ public final class AetherDroplet:
     nonisolated public static let id: DropletID = "aether"
     static let widgetID: ShelfWidgetID = "aether.codes"
 
-    private weak var host: DropletHost?
+    private var host: DropletHost?
     private lazy var fallbackDefaults: UserDefaults = {
         let suite = UserDefaults(suiteName: "app.getdroppy.droplet.aether.preview")!
         AetherPrefs.register(in: suite)
@@ -386,8 +386,8 @@ public final class AetherDroplet:
             }
             return confirmed
         }
-        target.hooks.openURL = { [weak host] url in
-            if host?.workspace.open(url) != true {
+        target.hooks.openURL = { [weak self] url in
+            if self?.host?.workspace.open(url) != true {
                 NSWorkspace.shared.open(url)
             }
         }
@@ -400,7 +400,7 @@ public final class AetherDroplet:
             return self.widgetVisible || self.popoverVisible
         }
         target.hooks.appVersion = {
-            Bundle(for: AetherDroplet.self).object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "2.0.0"
+            Bundle(for: AETHERPrincipal.self).object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "2.0.0"
         }
     }
 

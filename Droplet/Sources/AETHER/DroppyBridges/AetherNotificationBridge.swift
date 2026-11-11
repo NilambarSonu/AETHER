@@ -12,7 +12,7 @@ import Foundation
 @MainActor
 final class AetherNotificationBridge {
     private var cancellable: AnyCancellable?
-    private weak var host: DropletHost?
+    private var host: DropletHost?
     private weak var model: AetherAppModel?
     private var activeItemByNotificationID: [String: UUID] = [:]
 

@@ -11,7 +11,7 @@ final class AetherShortcutsBridge {
     static let copyLatestID = "copy-latest"
     static let openShelfID = "open-codes"
 
-    private weak var host: DropletHost?
+    private var host: DropletHost?
 
     /// Default `⌃⌥⌘C` built with AppKit modifier flags per DroppyKit specification.
     static let defaultCopyShortcut = DropletKeyboardShortcut(
@@ -43,8 +43,8 @@ final class AetherShortcutsBridge {
             id: Self.openShelfID,
             title: "Show verification codes in Droppy",
             defaultShortcut: Self.defaultOpenShortcut
-        ) { [weak host] in
-            _ = host?.shelf.open(revealing: AetherDroplet.widgetID)
+        ) { [weak self] in
+            _ = self?.host?.shelf.open(revealing: AetherDroplet.widgetID)
         }
     }
 

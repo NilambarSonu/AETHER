@@ -8,7 +8,7 @@ import SwiftUI
 /// Presents transient notch strips and cards through Droppy's fair `host.hud` queue.
 @MainActor
 final class AetherHUDBridge {
-    private weak var host: DropletHost?
+    private var host: DropletHost?
     private weak var model: AetherAppModel?
 
     func start(host: DropletHost, model: AetherAppModel) {
@@ -55,8 +55,8 @@ final class AetherHUDBridge {
                 }
             }
 
-        let secondaryAction = DropletHUDAction(title: "View") { [weak host] in
-            _ = host?.shelf.open(revealing: AetherDroplet.widgetID)
+        let secondaryAction = DropletHUDAction(title: "View") { [weak self] in
+            _ = self?.host?.shelf.open(revealing: AetherDroplet.widgetID)
         }
 
         let priority: DropletHUDPriority = .normal

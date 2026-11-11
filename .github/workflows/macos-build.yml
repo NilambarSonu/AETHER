@@ -122,6 +122,7 @@ jobs:
             cd Droplet
             droppykit version
             droppykit lint --no-binary --strict
+            swift build --target AETHER --configuration release --arch arm64 -Xswiftc -enable-library-evolution
             droppykit build
             droppykit validate
           )
