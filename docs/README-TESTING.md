@@ -1,12 +1,11 @@
 # AETHER Droplet — Installation & Testing Guide
 
-This directory/archive ships **`AETHER.droplet`**, built with the official **DroppyKit SDK** (`minAPI: 1.12.0`, `abi: 1`, `minAppVersion: 15.3.0`, universal `arm64` + `x86_64` binary dynamically linked against `@rpath/DroppyKit.framework/Versions/A/DroppyKit`).
+This directory/archive ships **`AETHER.droplet`** (`2.0.0`), a standalone droplet built with the official **DroppyKit SDK** (`minAPI: 1.23.0`, `abi: 1`, `minAppVersion: 16.2.0`, universal `arm64` + `x86_64` binary dynamically linked against `@rpath/DroppyKit.framework/Versions/A/DroppyKit`).
 
 > [!IMPORTANT]
 > **Security & Trust Boundary**
-> - `AETHER.droplet` is loaded dynamically (`dlopen`) inside the Droppy host process and shares Droppy's address space and permissions.
-> - Sensitive sources (Full Disk Access, Apple Mail/Messages databases, IMAP credentials, Keychain, OAuth tokens) stay strictly inside the **AETHER host application** (`CodeCatch`). `AETHER.droplet` receives only ephemeral verification codes over the same-user Unix Domain Socket after Darwin kernel audit-token verification (`LOCAL_PEERTOKEN`).
-> - **Never disable Droppy's launch approval prompt (`askBeforeRunning`).** The droplet requests explicit capabilities (`hud`, `clipboard-write`) and must be manually reviewed and enabled by you inside Droppy.
+> - `AETHER.droplet` is loaded dynamically (`dlopen`) inside the `Droppy.app` host process and shares Droppy's address space and permissions (including Full Disk Access & Accessibility once granted to Droppy).
+> - Review AETHER's declared capabilities (`hud`, `notch-banner`, `menu-bar`, `shelf-read`, `shelf-write`, `global-shortcuts`, `network-client`, `clipboard-write`, `full-disk-access-probe`, `accessibility`, `sound-playback`) carefully and approve enabling AETHER inside Droppy Settings.
 > - CI-built bundles are unsigned for local testing and CI verification (not Developer ID notarized).
 
 ---
@@ -42,8 +41,8 @@ README-TESTING.md             # This guide
 
    *(Or run `./scripts/build-droplet.sh --install --playground --bundle /path/to/AETHER.droplet` from the AETHER repository.)*
 
-2. Launch **Droppy Playground** and approve **AETHER** when prompted (`hud`, `clipboard-write`).
-3. Verify the droplet loads, displays in Droppy Playground's droplet list, and reports its `HUD` surface without linkage or manifest errors.
+2. Launch **Droppy Playground**, open **Settings → Droplets → AETHER**, review its declared capabilities, and approve enabling it.
+3. Verify AETHER renders all settings pages inside **Droppy Settings → Droplets → AETHER**, appears in the **Notch Shelf** picker and **Command Center**, and delivers a test code via **Send Test Code**.
 
 ---
 
@@ -68,15 +67,16 @@ README-TESTING.md             # This guide
    ./scripts/build-droplet.sh --rollback
    ```
 
-2. Open **Droppy Settings -> Droplets**.
-3. Review AETHER's declared capabilities (`hud`, `clipboard-write`) and explicitly approve/enable **AETHER** when Droppy prompts.
-4. Start the **AETHER host app** separately (`CodeCatch`) so it opens `~/Library/Application Support/Aether/droplet.sock` and writes `session.token` (`0600`) for live OTP HUD delivery.
+2. Open **Droppy Settings → Droplets → AETHER** and approve/enable **AETHER** when prompted.
+3. Configure your sources (**Messages**, **Apple Mail**, **Google Gmail OAuth**, **Microsoft Outlook OAuth**, **iCloud/Yahoo/IMAP**, **Bitwarden TOTP**, **Agents & MCP**, **Privacy**) inside **Droppy Settings → Droplets → AETHER**.
+4. Grant **Full Disk Access** to **Droppy** if watching Messages / Apple Mail, and **Accessibility** if using auto-type.
+5. Add the **AETHER** widget to your **Notch Shelf** or open **Command Center** to view, search, copy, and open incoming codes and sign-in links.
 
 ---
 
 ## 4. Building & Running the Official DroppyKit Harness from Source
 
-Building `.droplet` bundles and running `DroppyKitHarness` requires **Xcode 26 or later** (Command Line Tools alone cannot compile SwiftUI macros used inside `DroppyKit`).
+Building `.droplet` bundles and running `DroppyKitHarness` requires **Xcode 26 or later** (Command Line Tools alone cannot compile `SwiftUIMacros` inside `DroppyKit`).
 
 ```bash
 # 1. Clone the official DroppyKit SDK and add Scripts to PATH

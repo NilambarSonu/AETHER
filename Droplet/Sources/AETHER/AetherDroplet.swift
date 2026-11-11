@@ -1,209 +1,462 @@
 // Modified for AETHER (November 2026). Copyright (C) 2026 Nilambar Behera.
 // Licensed under the GNU General Public License, Version 3.0 (GPLv3).
 
-import AetherIPC
+import AetherEngine
+import AppKit
+import CodeCatchCore
+import Combine
 import DroppyKit
-import Foundation
 import SwiftUI
 
-/// Principal class instantiated by Droppy's bundle loader (`NSPrincipalClass`).
 @objc(AETHERPrincipal)
 public final class AETHERPrincipal: NSObject, DropletPrincipal {
-    public override init() { super.init() }
-
-    @MainActor public func makeDroplet() -> AnyObject {
+    @MainActor
+    public func makeDroplet() -> AnyObject {
         AetherDroplet()
     }
 }
 
-/// Droppy droplet bridging ephemeral OTP events from the local AETHER host over authenticated UDS.
+/// Standalone AETHER droplet providing local OTP/link monitoring (Messages, Apple Mail, Gmail,
+/// Outlook, IMAP), Bitwarden TOTP import, privacy/clipboard safeguards, Settings UI inside Droppy
+/// Settings (`SettingsPagesProviding`), Notch Shelf widget (`ShelfWidgetCompositionProviding`),
+/// Command Center panel (`MenuBarExtraProviding`), HUD/banner alerts (`HUDPresenting`), ephemeral
+/// notch live activity (`LiveActivityProviding`), and native Droppy MCP tools (`MCPToolProviding`).
 @MainActor
-public final class AetherDroplet: NSObject, HUDPresenting {
-    public nonisolated static let id: DropletID = "aether"
+public final class AetherDroplet:
+    ObservableObject,
+    Droplet,
+    HUDPresenting,
+    SettingsPagesProviding,
+    ShelfWidgetCompositionProviding,
+    MenuBarExtraProviding,
+    LiveActivityProviding,
+    MCPToolProviding
+{
+    nonisolated public static let id: DropletID = "aether"
+    static let widgetID: ShelfWidgetID = "aether.codes"
 
-    private var transport: AetherIPCClientTransport?
-    private var host: DropletHost?
-    private var eventTask: Task<Void, Never>?
-    private var currentEventID: UUID?
+    private weak var host: DropletHost?
+    private lazy var fallbackDefaults: UserDefaults = {
+        let suite = UserDefaults(suiteName: "app.getdroppy.droplet.aether.preview")!
+        AetherPrefs.register(in: suite)
+        return suite
+    }()
 
-    public override init() {
-        super.init()
+    private var activeModel: AetherAppModel?
+    private var modelObservation: AnyCancellable?
+
+    private let notificationBridge = AetherNotificationBridge()
+    private let hudBridge = AetherHUDBridge()
+    private let shortcutsBridge = AetherShortcutsBridge()
+
+    private let activitySubject = CurrentValueSubject<LiveActivityState?, Never>(nil)
+    private var lastActivityKey: ActivitySignature?
+    private var widgetVisible = false
+    private var popoverVisible = false
+
+    private struct ActivitySignature: Equatable {
+        enum Kind: Equatable {
+            case agent(UUID, String)
+            case code(UUID, String)
+        }
+        let kind: Kind
     }
 
+    var model: AetherAppModel {
+        if let activeModel {
+            return activeModel
+        }
+        let preview = AetherAppModel(defaults: fallbackDefaults)
+        activeModel = preview
+        return preview
+    }
+
+    public init() {}
+
+    // MARK: - Droplet Lifecycle
+
     public func activate(host: DropletHost) throws {
+        deactivate()
         self.host = host
-        host.log.info("AETHER droplet activating")
 
-        let clientTransport = AetherIPCClientTransport(
-            clientIdentifier: "iordv.Droppy",
-            serverValidator: AetherHostPeerValidator()
-        )
-        self.transport = clientTransport
+        let defaults = host.preferences.userDefaults
+        AetherPrefs.register(in: defaults)
 
-        eventTask = Task { @MainActor [weak self, clientTransport] in
-            await clientTransport.startAutoReconnect(retryInterval: 1.0)
+        MailOAuth.anchorProvider = {
+            AetherWindowAnchorStore.shared.settingsWindow ?? NSApp.keyWindow ?? NSApp.mainWindow
+        }
 
-            for await payload in clientTransport.payloads {
-                guard let self, !Task.isCancelled else { break }
-                self.presentOTPCard(payload: payload)
+        let newModel = AetherAppModel(defaults: defaults)
+        configureHooks(on: newModel, host: host)
+        activeModel = newModel
+
+        notificationBridge.start(host: host, model: newModel)
+        hudBridge.start(host: host, model: newModel)
+
+        modelObservation = newModel.objectWillChange.sink { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.objectWillChange.send()
+                self.updateLiveActivity()
             }
         }
 
-        host.log.info("AETHER droplet activated")
+        newModel.start()
+        shortcutsBridge.sync(host: host, model: newModel)
+        updateLiveActivity()
     }
 
     public func deactivate() {
-        host?.log.info("AETHER droplet deactivating")
-        if let currentEventID {
-            host?.hud.dismiss(id: Self.hudIdentifier(for: currentEventID))
-            self.currentEventID = nil
-        }
-        eventTask?.cancel()
-        eventTask = nil
+        modelObservation?.cancel()
+        modelObservation = nil
 
-        let activeTransport = transport
-        transport = nil
-        Task {
-            await activeTransport?.stop()
-        }
+        lastActivityKey = nil
+        activitySubject.send(nil)
 
+        shortcutsBridge.stop()
+        notificationBridge.stop()
+        hudBridge.stop()
+
+        activeModel?.stop()
+        activeModel = nil
+
+        widgetVisible = false
+        popoverVisible = false
         host = nil
     }
 
-    private static func hudIdentifier(for eventID: UUID) -> String {
-        "aether.otp.\(eventID.uuidString)"
+    // MARK: - SettingsPagesProviding
+
+    public var settingsSearchEntries: [SettingsSearchEntry] {
+        [
+            SettingsSearchEntry(title: "General notifications & auto-copy", keywords: ["banner", "hud", "clipboard", "auto-type", "shortcuts", "sound"]),
+            SettingsSearchEntry(title: "Mail & Messages sources", keywords: ["messages", "imessage", "sms", "apple mail", "gmail", "outlook", "icloud", "yahoo", "imap", "oauth"]),
+            SettingsSearchEntry(title: "Bitwarden TOTP authenticator", keywords: ["bitwarden", "totp", "bw", "vault", "authenticator"]),
+            SettingsSearchEntry(title: "Privacy, Touch ID & history", keywords: ["touch id", "lock", "screen capture", "blur", "clipboard", "history", "icons"]),
+            SettingsSearchEntry(title: "AI agents & Droppy MCP", keywords: ["mcp", "claude", "codex", "cursor", "agent", "rules", "log"]),
+            SettingsSearchEntry(title: "Recent unmatched emails", keywords: ["recovery", "emails", "unmatched"]),
+            SettingsSearchEntry(title: "Ignored senders & false positives", keywords: ["ignore", "sender", "not a code", "filter"]),
+        ]
     }
 
-    private func presentOTPCard(payload: AetherOTPPayload) {
-        guard let host else { return }
+    public func makeSettingsPane(context: SettingsPaneContext) -> AnyView {
+        AnyView(
+            AetherSettingsRootPane(droplet: self, model: model)
+                .defaultAppStorage(model.defaults)
+        )
+    }
 
-        currentEventID = payload.eventID
-        let code = payload.otpCode
-        let service = payload.serviceLabel
-        let eventID = payload.eventID
-        let hudID = Self.hudIdentifier(for: eventID)
-        let canCopy = host.isGranted(.clipboardWrite)
-
-        // Notify the host that the verification code was presented.
-        sendAcknowledgment(eventID: eventID, status: .displayed)
-
-        // Clamp duration to Droppy's 30-second HUD fairness bound while respecting expiry.
-        let duration = max(5.0, min(30.0, payload.expiresAt.timeIntervalSinceNow))
-
-        let request = DropletHUDRequest(
-            id: hudID,
-            duration: duration,
-            priority: .normal,
-            accessibilityLabel: "\(service) verification code",
-            isExpanded: true,
-            expandedContentHeight: 108
-        ) {
-            // Compact strip: icon at left wing, code at right wing, center clear around camera cutout.
-            HStack(spacing: 0) {
-                Image(systemName: "lock.shield.fill")
-                    .font(.system(size: DroppyLiveActivityMetrics.iconSize, weight: .semibold))
-                Spacer(minLength: 0)
-                Text(verbatim: code)
-                    .font(.system(size: DroppyLiveActivityMetrics.labelFontSize, weight: .semibold))
-                    .monospacedDigit()
+    public func makeSettingsPage(id: String, context: SettingsPaneContext) -> AnyView? {
+        let view: AnyView? = {
+            if let editID = AetherSettingsRoute.parseEditAccountID(from: id) {
+                return AnyView(AccountEditorSettingsPage(droplet: self, model: model, existingAccountID: editID))
             }
-            .frame(maxWidth: .infinity)
-            .foregroundStyle(AdaptiveColors.notchSurfacePrimaryText)
-        } expanded: { [weak self] in
-            AetherOTPHUDCardView(
-                service: service,
-                code: code,
-                canCopy: canCopy,
-                onCopy: { self?.copyCodeAndDismiss(code, eventID: eventID) },
-                onDismiss: { self?.dismissHUD(eventID: eventID) }
+            if let preset = AetherSettingsRoute.parseNewAccountPreset(from: id) {
+                return AnyView(AccountEditorSettingsPage(droplet: self, model: model, preset: preset))
+            }
+            guard let route = AetherSettingsRoute(rawValue: id) else { return nil }
+            switch route {
+            case .general:
+                return AnyView(GeneralSettingsPage(droplet: self, model: model))
+            case .sources:
+                return AnyView(SourcesSettingsPage(droplet: self, model: model))
+            case .privacy:
+                return AnyView(PrivacySettingsPage(droplet: self, model: model))
+            case .agents:
+                return AnyView(AgentsSettingsPage(droplet: self, model: model))
+            case .agentRules:
+                return AnyView(AgentRulesSettingsPage(model: model))
+            case .agentHistory:
+                return AnyView(AgentHistorySettingsPage(model: model))
+            case .recovery:
+                return AnyView(RecoveryEmailsSettingsPage(model: model))
+            case .ignoredSenders:
+                return AnyView(IgnoredSendersSettingsPage(model: model))
+            case .notCodes:
+                return AnyView(NotCodesSettingsPage(model: model))
+            case .addAccount:
+                return AnyView(AddAccountSettingsPage(droplet: self, model: model))
+            case .bitwarden:
+                return AnyView(BitwardenSettingsPage(droplet: self, model: model))
+            }
+        }()
+        return view.map { AnyView($0.defaultAppStorage(model.defaults)) }
+    }
+
+    public func makeSettingsPageToolbar(id: String, context: SettingsPaneContext) -> AnyView? {
+        switch AetherSettingsRoute(rawValue: id) {
+        case .sources:
+            return AnyView(
+                DropletSettingsToolbarButton("Add Account", systemImage: "plus") { [weak self] in
+                    self?.openSettingsPage(AetherSettingsRoute.addAccount.rawValue, title: "Add mail account")
+                }
+            )
+        case .recovery:
+            return AnyView(
+                DropletSettingsToolbarButton("Clear", systemImage: "trash") { [weak self] in
+                    self?.model.recovery.removeAll()
+                }
+            )
+        case .agentHistory:
+            return AnyView(
+                DropletSettingsToolbarButton("Clear", systemImage: "trash") { [weak self] in
+                    self?.model.agents.clearLog()
+                }
+            )
+        default:
+            return nil
+        }
+    }
+
+    // MARK: - ShelfWidgetCompositionProviding
+
+    public var widgetDescriptors: [ShelfWidgetDescriptor] {
+        [
+            ShelfWidgetDescriptor(
+                id: Self.widgetID,
+                title: "AETHER",
+                systemImage: "key.viewfinder",
+                layoutTraits: ShelfWidgetLayoutTraits(
+                    single: ShelfWidgetModeSize(width: 360, height: .fitting(range: 140...260)),
+                    split: ShelfWidgetModeSize(width: 190, height: .fitting(range: 110...180)),
+                    header: .standard
+                ),
+                focusPolicy: .keyboardFocusable,
+                searchKeywords: ["otp", "2fa", "verification", "code", "totp", "bitwarden", "mail", "messages", "aether"]
+            )
+        ]
+    }
+
+    public func makeWidgetContent(_ id: ShelfWidgetID, layout: ShelfWidgetLayout) -> AnyView {
+        AnyView(
+            AetherShelfWidgetView(droplet: self, model: model)
+                .defaultAppStorage(model.defaults)
+        )
+    }
+
+    // MARK: - MenuBarExtraProviding
+
+    public func makeMenuBarExtra() -> MenuBarExtraDescriptor? {
+        MenuBarExtraDescriptor(title: "AETHER", systemImage: "key.viewfinder") { [weak self] in
+            guard let self else { return AnyView(EmptyView()) }
+            return AnyView(
+                AetherMenuBarExtraView(droplet: self, model: self.model)
+                    .defaultAppStorage(self.model.defaults)
             )
         }
-
-        _ = host.hud.present(request)
-        host.log.info("Presented verification code HUD")
     }
 
-    private func copyCodeAndDismiss(_ code: String, eventID: UUID) {
-        guard let host else { return }
-        if host.workspace.copyToPasteboard(code) {
-            host.log.info("Copied verification code to pasteboard")
-            sendAcknowledgment(eventID: eventID, status: .copied)
-        } else {
-            host.log.notice("Pasteboard copy refused (missing clipboard-write capability)")
+    // MARK: - LiveActivityProviding
+
+    public var liveActivityState: AnyPublisher<LiveActivityState?, Never> {
+        activitySubject.eraseToAnyPublisher()
+    }
+
+    public func makeCompactLeading(context: CompactLiveActivityContext) -> AnyView {
+        if let pending = model.agents.request, pending.item != nil {
+            return AnyView(
+                Image(systemName: "terminal.fill")
+                    .font(.system(size: DroppyLiveActivityMetrics.compactSymbolSize, weight: .semibold))
+                    .foregroundStyle(.orange)
+            )
         }
-        dismissHUD(eventID: eventID)
+        return AnyView(
+            Image(systemName: "key.viewfinder")
+                .font(.system(size: DroppyLiveActivityMetrics.compactSymbolSize, weight: .semibold))
+                .foregroundStyle(.blue)
+        )
     }
 
-    private func dismissHUD(eventID: UUID) {
-        host?.hud.dismiss(id: Self.hudIdentifier(for: eventID))
-        if currentEventID == eventID {
-            currentEventID = nil
-        }
-    }
-
-    private func sendAcknowledgment(eventID: UUID, status: AetherAcknowledgmentStatus) {
-        guard let activeTransport = transport else { return }
-        Task {
-            if let ack = try? AetherOTPAcknowledgment(eventID: eventID, status: status) {
-                try? await activeTransport.sendAcknowledgment(ack)
-            }
-        }
-    }
-}
-
-private struct AetherOTPHUDCardView: View {
-    let service: String
-    let code: String
-    let canCopy: Bool
-    let onCopy: @MainActor @Sendable () -> Void
-    let onDismiss: @MainActor @Sendable () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: DroppySpacing.sm) {
-            HStack(alignment: .center, spacing: DroppySpacing.xs) {
-                Image(systemName: "lock.shield.fill")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.blue)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(verbatim: service)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(AdaptiveColors.notchSurfacePrimaryText)
-                        .lineLimit(1)
-                    Text(verbatim: "Verification code")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(AdaptiveColors.notchSurfaceSecondaryText)
-                        .lineLimit(1)
-                }
-
-                Spacer(minLength: DroppySpacing.xs)
-
-                Text(verbatim: code)
-                    .font(.system(size: 20, weight: .bold, design: .monospaced))
-                    .foregroundStyle(AdaptiveColors.notchSurfacePrimaryText)
+    public func makeCompactTrailing(context: CompactLiveActivityContext) -> AnyView {
+        if let pending = model.agents.request, let item = pending.item {
+            let site = item.domain ?? pending.query.label
+            return AnyView(
+                Text(verbatim: site)
+                    .font(.system(size: 12, weight: .semibold))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.75)
+            )
+        }
+        if model.isUnlocked, let code = activeCodeForLiveActivity {
+            let text = model.isOn(AetherPrefs.blurCodes)
+                ? "••••••"
+                : AetherNotificationBridge.formatCode(code.code)
+            return AnyView(
+                Text(verbatim: text)
+                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                    .monospacedDigit()
+                    .lineLimit(1)
+            )
+        }
+        return AnyView(EmptyView())
+    }
+
+    // MARK: - MCPToolProviding
+
+    public var mcpTools: [DropletMCPTool] {
+        AetherMCPBridge.tools
+    }
+
+    public func performMCPTool(named name: String, argumentsJSON: String) async throws -> String {
+        try await AetherMCPBridge.perform(named: name, argumentsJSON: argumentsJSON, model: model)
+    }
+
+    // MARK: - Workspace & Navigation Helpers
+
+    @discardableResult
+    func openShelfWidget() -> Bool {
+        host?.shelf.open(revealing: Self.widgetID) ?? false
+    }
+
+    @discardableResult
+    func openSettings() -> Bool {
+        host?.workspace.openSettings() ?? false
+    }
+
+    func openSettingsPage(_ id: String, title: String) {
+        _ = host?.workspace.openSettingsPage(id, title: title)
+    }
+
+    func goBackInSettings() {
+        _ = host?.workspace.goBackInSettings()
+    }
+
+    func openAccessibilitySettings() {
+        host?.permissions.openSystemSettings(for: .accessibility)
+    }
+
+    func openFullDiskAccessSettings() {
+        host?.permissions.openSystemSettings(for: .fullDiskAccessProbe)
+    }
+
+    func openShortcutsSettings() {
+        _ = host?.workspace.openShortcuts()
+    }
+
+    func syncShortcuts() {
+        guard let host else { return }
+        shortcutsBridge.sync(host: host, model: model)
+    }
+
+    func copyText(_ text: String) {
+        _ = host?.workspace.copyToPasteboard(text)
+    }
+
+    func setWidgetVisible(_ visible: Bool) {
+        widgetVisible = visible
+    }
+
+    func setPopoverVisible(_ visible: Bool) {
+        popoverVisible = visible
+    }
+
+    // MARK: - Private Wiring
+
+    private func configureHooks(on target: AetherAppModel, host: DropletHost) {
+        target.hooks.presentBanner = { [weak self, weak target] itemID in
+            guard let item = target?.items.first(where: { $0.id == itemID }) else { return }
+            self?.notificationBridge.presentCodeNotification(for: item)
+        }
+        target.hooks.dismissBanner = { [weak self] itemID in
+            self?.notificationBridge.withdrawCodeNotification(for: itemID)
+        }
+        target.hooks.presentHUD = { [weak self] item, userInitiated in
+            self?.hudBridge.presentArrivalHUD(for: item, userInitiated: userInitiated)
+        }
+        target.hooks.playArrivalSound = {
+            NSSound(named: "Glass")?.play()
+        }
+        target.hooks.confirmLink = { title, notice, details, email in
+            let message = "\(notice)\n\n\(details)"
+            let confirmed = DropletConfirmationDialog.present(
+                title: "Open link to \(title)?",
+                message: message,
+                confirmTitle: "Open Link",
+                symbol: "exclamationmark.triangle.fill"
+            )
+            if !confirmed, let email {
+                let openSource = DropletConfirmationDialog.present(
+                    title: "Inspect source message instead?",
+                    message: "Open the original message in Mail to verify the sender first.",
+                    confirmTitle: email.title,
+                    symbol: "envelope.fill"
+                )
+                if openSource {
+                    email.run()
+                }
             }
-
-            HStack(spacing: DroppySpacing.xs) {
-                if canCopy {
-                    Button(action: onCopy) {
-                        Text(verbatim: "Copy Code")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.blue)
-                    .controlSize(.small)
-                }
-
-                Button(action: onDismiss) {
-                    Text(verbatim: "Dismiss")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
+            return confirmed
+        }
+        target.hooks.openURL = { [weak host] url in
+            if host?.workspace.open(url) != true {
+                NSWorkspace.shared.open(url)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        target.hooks.presentAgentState = { [weak self] presentation in
+            self?.notificationBridge.presentAgentState(presentation)
+            self?.updateLiveActivity()
+        }
+        target.hooks.isUIVisible = { [weak self] in
+            guard let self else { return false }
+            return self.widgetVisible || self.popoverVisible
+        }
+        target.hooks.appVersion = {
+            Bundle(for: AetherDroplet.self).object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "2.0.0"
+        }
+    }
+
+    private var activeCodeForLiveActivity: CodeItem? {
+        guard model.isOn(AetherPrefs.codeInMenuBar), model.isUnlocked, let latest = model.latestCode else {
+            return nil
+        }
+        guard !latest.used, latest.shouldAnnounce(at: model.now) else {
+            return nil
+        }
+        return latest
+    }
+
+    private func updateLiveActivity() {
+        if let pending = model.agents.request, let item = pending.item {
+            let site = item.domain ?? pending.query.label
+            let signature = ActivitySignature(kind: .agent(pending.id, site))
+            guard lastActivityKey != signature else { return }
+            lastActivityKey = signature
+            activitySubject.send(
+                LiveActivityState(
+                    priority: .attention,
+                    kind: .custom,
+                    accessibilityTitle: "\(pending.caller.name) asks for \(site) code",
+                    accessibilityValue: { site },
+                    isInteractive: true,
+                    joinsPersistentActivitySet: false,
+                    expandedWidgetID: Self.widgetID.rawValue
+                )
+            )
+            return
+        }
+
+        if let code = activeCodeForLiveActivity {
+            let concealed = model.isOn(AetherPrefs.blurCodes)
+            let formatted = concealed ? "hidden" : AetherNotificationBridge.formatCode(code.code)
+            let signature = ActivitySignature(kind: .code(code.id, formatted))
+            guard lastActivityKey != signature else { return }
+            lastActivityKey = signature
+            activitySubject.send(
+                LiveActivityState(
+                    priority: .status,
+                    kind: .custom,
+                    accessibilityTitle: "\(code.service) verification code",
+                    accessibilityValue: { formatted },
+                    isInteractive: true,
+                    joinsPersistentActivitySet: false,
+                    expandedWidgetID: Self.widgetID.rawValue
+                )
+            )
+            return
+        }
+
+        if lastActivityKey != nil {
+            lastActivityKey = nil
+            activitySubject.send(nil)
+        }
     }
 }

@@ -1,134 +1,36 @@
 # Architecture and Privacy Boundaries
 
-AETHER implements **Option A (In-Process Engine with Droplet UI Bridge)**. Sparkle is the host package's external dependency (`Droplet/` consumes official `DroppyKit` separately); resolved versions are pinned.
+**AETHER v2.0** provides a **standalone `AETHER.droplet`** built with **DroppyKit v1.23.0+**, unifying full verification-code detection, mail/messaging/TOTP adapters, privacy controls, Settings UI, Notch Shelf, Command Center, HUD/banners, and MCP tools inside one `.droplet` bundle. (Legacy host app target `CodeCatch`, `CodeCatchCLI`, `AetherCore`, and synchronized `AetherIPC` remain intact for compatibility and hardening tests.)
 
 | Target / Bundle | Type | What it holds |
 |---|---|---|
-| `AetherCore` | Swift Package Target | Headless verification engine, event-driven provider coordinator, length-prefixed frame codecs, secure Unix Domain Socket transport server & client actors, and Darwin kernel audit token peer validators. |
-| `CodeCatchCore` | Swift Package Target | Code extraction regex engine, MIME parsing, service identifiers, sign-in link handlers, and TOTP algorithms. No UI, no network, no account access. |
-| `CodeCatch` | Swift Package Target (App) | The host application: macOS adapters, orchestration, local SQLite database watchers, IMAP client, and menu bar popover. |
-| `CodeCatchCLI` | Swift Package Target (CLI) | `codecatch`, the local CLI tool for local verification lookups. |
-| `AETHER.droplet` | Plug-in Bundle (`.droplet`) | Dynamic island / notch HUD plug-in dynamically loaded (`dlopen`) inside the `Droppy.app` process (`iordv.Droppy`). Shares Droppy's process address space and security context (not an independent OS sandbox). Connects to `AetherIPCTransportServer` over UDS and presents ephemeral OTP HUD cards. |
+| `CodeCatchCore` (`Droplet/Sources/CodeCatchCore`) | Swift Package Target | Deterministic OTP extraction regex/fixture engine (704 test vectors), MIME parsing, `TOTP` implementation, service identity rules, Public Suffix List, and `VaultCode` parser. Zero UI, zero network, zero disk state. |
+| `AetherEngine` (`Droplet/Sources/AetherEngine`) | Swift Package Target | Headless engine inside the droplet: `MessagesStore`, `AppleMailStore`, `GmailAPI`, `OutlookAPI`, `MailOAuth` (PKCE), `IMAPConnection`, `MailWatcher`, `APIWatcher`, `BitwardenCLI`, `AutoTyper`, `AetherAgentAccess`, `AgentSkillsManager`, `AetherClipboard`, `VaultSession`, `RecoveryInbox`, `AetherSecretStore` (`app.getdroppy.droplet.aether`). |
+| `AETHER.droplet` (`Droplet/Sources/AETHER`) | Loadable Bundle (`.droplet`) | `AETHERPrincipal` & `AetherDroplet` dynamically loaded (`dlopen`) inside `Droppy.app` (`iordv.Droppy`, Team ID `NARHG44L48`). Shares Droppy's process address space and entitlements (not an independent OS sandbox). Implements `HUDPresenting`, `SettingsPagesProviding`, `ShelfWidgetCompositionProviding`, `MenuBarExtraProviding`, `LiveActivityProviding`, and `MCPToolProviding`. |
+| `AetherIPC` / `AetherCore` | Synchronized IPC Targets | Length-prefixed binary framing, kernel audit token peer validator (`LOCAL_PEERTOKEN`), and UDS transport preserved in byte-for-byte parity. |
 
-Inside `Sources/CodeCatch`:
+## Surface Separation
 
-| Folder | What it holds |
-|---|---|
-| `App` | Entry point and app delegate |
-| `Debug` | Debug-only launch flags (`--probe`, `--snapshot`, …), left out of release builds |
-| `Model` | `AppModel`, received codes, search, preferences, the source monitor and the local-database watcher |
-| `Messages` | Reading the Messages database |
-| `Mail` | Apple Mail, IMAP, and Gmail / Outlook through their APIs, with sign-in |
-| `Vault` | Bitwarden import and the locked store of TOTP secrets |
-| `Agents` | The socket server, approval rules and skill files for `codecatch` |
-| `System` | Clipboard, Keychain, Touch ID, hotkeys, typing, service logos, login item and updates |
-| `UI` | Menu bar popover, banner, settings and shared components |
+- **Droppy Settings (`SettingsPagesProviding`):** Root quick-actions pane, General notifications & auto-type, Sources & Accounts (Messages, Apple Mail, Google/Microsoft OAuth PKCE, IMAP editor + test connection), Bitwarden TOTP CLI import wizard, Ignored Senders, Not a Code rules, Privacy & History, Agents & MCP, Rules, Audit Log, and Unmatched Recent Emails recovery.
+- **Notch & Command Center (`ShelfWidgetCompositionProviding`, `MenuBarExtraProviding`, `HUDPresenting`, `LiveActivityProviding`):** Strictly dedicated to code/link inspection, live expiry countdowns, hover-to-unblur, clipboard copy, sign-in link confirmation/opening, and transient approval banners — with one-tap deep links into Droppy Settings when configuration is needed.
 
-## Received messages
+## Received Messages & In-Memory Bounds
 
-`MessagesStore` and `AppleMailStore` read local stores through `LocalWatcher`.
-`MailWatcher` uses TLS IMAP with `EXAMINE` and `BODY.PEEK`. `APIWatcher` reads
-Gmail and Outlook accounts through `GmailAPI` and `OutlookAPI`. `SourceMonitor` owns
-worker lifetimes and rejects callbacks from replaced workers using generations.
-Every source delivers `IncomingMessage` to `AppModel.ingest` for extraction,
-deduplication, history limits and announcement decisions.
+- `MessagesStore` reads `~/Library/Messages/chat.db` via SQLite read-only FSEvents/debounce (`LocalWatcher`); `AppleMailStore` reads `~/Library/Mail` read-only using Droppy's Full Disk Access permission.
+- `MailWatcher` uses TLS IMAP with read-only `EXAMINE` / `BODY.PEEK` so inbox read flags remain untouched.
+- `APIWatcher` polls Gmail REST and Microsoft Graph `Mail.Read` read-only endpoints with PKCE OAuth tokens stored in the login Keychain (`app.getdroppy.droplet.aether`).
+- Received codes and `RecoveryInbox` (capped at 20 emails for 30 minutes) stay in memory only and are purged on expiration, dismissal, Clear History, or macOS lock when Clear on Lock is enabled.
+- Droplet preferences use `host.preferences.userDefaults` (never `UserDefaults.standard`), with `unlockWithMac` stored strictly in Keychain (`UnlockPolicy`).
 
-Received codes and recovery messages stay in memory. Dismissal identifiers,
-source account configuration and preferences use UserDefaults. So do "Not a
-Code" rules: the sender and a hash of the line the number stood on, digits
-masked, never the message text (`NotCode.swift`). `Prefs` supplies
-defaults and the history limit; model, monitor, search and account persistence
-must use the same injected store. Tests must not fall back to `.standard`.
+## Authentication, Clipboard & Capture Privacy
 
-Recovery retains at most 20 messages for 30 minutes, bounds their text and
-requires explicit selection and an unlocked session before copying.
+- `VaultSession` starts locked unless Unlock with Mac is explicitly opted into via authentication; sleep and screen lock cancel pending requests and lock imported Bitwarden TOTP entries.
+- `AetherClipboard` writes with `NSPasteboard.ContentsOptions.currentHostOnly`, `org.nspasteboard.ConcealedType`, and `org.nspasteboard.TransientType`, clearing owned entries after 90 seconds if unchanged.
+- `AetherScopedCaptureGuard` sets `window.sharingType = .none` only while a visible unlocked code or recovery view is mounted, restoring the hosting window's original sharing type immediately on unmount.
 
-## Authentication and output
+## AI Agent Guardrails (`MCPToolProviding`)
 
-`VaultSession` starts locked. macOS authentication loads saved vault entries;
-a generation check prevents a pending unlock from winning after a lock or
-cancellation. Sleep, screen lock and manual lock clear the loaded vault. Received
-messages may still arrive while locked, but copy/open/type actions require unlock.
-The optional clear-on-lock setting also removes received history.
-
-`VaultStorage` owns vault serialization; `Secrets` owns login-Keychain calls.
-This is an app session lock, not a separate biometric Keychain access-control
-policy. It does not defend against a compromised macOS account or process memory
-inspection. Swift strings and Data are not guaranteed to be securely zeroed.
-
-All copy paths use `Clipboard`. Copies disable Universal Clipboard and advertise
-concealed/transient markers. Those markers are requests to other apps, not access
-control. Timeout and lock cleanup only clear a clipboard value still owned by
-CodeCatch. Auto-type is opt-in; sign-in links open only after a user action.
-
-## Agent access
-
-`codecatch` (`Sources/CodeCatchCLI`, shipped as `Contents/Helpers/codecatch`)
-talks to the running app over a Unix socket in Application Support (folder 0700,
-socket 0600). There is no TCP port, token or URL scheme that gives out codes.
-Each side checks the other. The app accepts only the same user and names the
-caller after the first validly signed app up its parent processes. The process's
-own name is shown as unverified. The CLI sends nothing unless the socket's owner
-is CodeCatch, signed by the CLI's own team.
-
-`AgentAccess` keeps the switch and the "always allow" rules in the login
-Keychain, so `defaults write` can't turn them on. A release needs Touch ID or
-the Mac password on the request's card every time, or a rule: an app (bundle ID
-and team), one site or all. Allow All, turned on with the same authentication,
-releases to any caller; it shares the hourly cap and never covers a text that
-names no site. Sign-in links go to agents only while their own switch is on
-(also behind authentication), then under the same card, rules and Allow All.
-An approval covers the one item the card showed. Mail matches by the sender's
-registrable domain only.
-Links go out only from verified senders, to the requested site, and never for a
-password reset or a link the lookalike check warns about. While a request waits,
-new codes skip auto-copy, auto-type and the banner. Lock and sleep cancel a
-pending card; rules keep working while locked, so unattended runs can finish.
-Three denials in a row turn access off, and rules give out at most 20 codes an
-hour before asking again. The log keeps who asked, the site and the outcome,
-never the code. Connect writes `codecatch/SKILL.md` into an agent's
-own skills folder (`~/.claude`, `~/.codex`, `~/.cursor`), marked as CodeCatch's;
-Disconnect and launch-time refresh touch only files with that mark. None of
-this stops a program that already has Full Disk Access from reading Messages
-or Mail directly.
-
-## Network boundaries
-
-| Component | Destination and purpose |
-|---|---|
-| `MailWatcher` | Configured IMAP server over TLS; inbox reads |
-| `OAuth` | Google or Microsoft sign-in and token endpoints; only for accounts added with Sign in with Google or Microsoft |
-| `GmailAPI`, `OutlookAPI` | Gmail API or Microsoft Graph; read-only inbox reads for those accounts |
-| `BitwardenCLI` | User's configured Bitwarden service; explicit sync/import |
-| `IconStore` | Google's favicon service, then DuckDuckGo's when Google has no sharp logo; receives the inferred domain, never message text or codes |
-| `Updater` | codecatch.app for the Sparkle feed (with a random install ID, build, macOS version and Mac model, counted by `functions/_middleware.js`) and signed release downloads |
-
-Logos are on by default and can be disabled in Privacy. Only the two favicon
-services' hosts are allowed; redirects to service websites are rejected. They
-receive the requesting IP address and domain. Other servers receive ordinary
-connection metadata for their respective features. Opening a sign-in link also
-sends its token to the chosen destination. Apart from that install count, there
-is no app analytics or crash-upload pipeline. The public
-[privacy page](site/privacy/index.html) must stay consistent with implementation
-changes.
-
-## Droppy Bridge & Trust Boundaries (Option A)
-
-AETHER delegates HUD rendering to `AETHER.droplet`, running inside the external `Droppy.app` process (`iordv.Droppy`, Team `NARHG44L48`):
-
-- **Host Privilege Isolation:** Sensitive source access (Full Disk Access, Apple Mail SQLite, Messages DB, IMAP credentials, OAuth tokens, and login Keychain) remains exclusively in the AETHER host process. `AETHER.droplet` receives only ephemeral `AetherOTPPayload` events (service name, OTP code, and expiration) over UDS (`~/Library/Application Support/Aether/droplet.sock`).
-- **Droppy Process Context (Not an Independent Sandbox):** `AETHER.droplet` is loaded into `Droppy.app` via `dlopen`. It shares `Droppy.app`'s address space, entitlements, and security context alongside any other enabled droplets. As `Droplet` does not execute in a separate OS sandbox, `AetherDroplet` accesses the user's `~/Library/Application Support/Aether/session.token` file under `Droppy.app`'s UID/permissions.
-- **Process-Level IPC Authentication:** `AetherIPCTransportServer` validates `Droppy.app` using Darwin kernel audit tokens (`LOCAL_PEERTOKEN`) and `SecCodeCheckValidity` against `iordv.Droppy` (Team `NARHG44L48`). Conversely, `AetherIPCClientTransport` validates the host via `com.uros.codecatch`. Kernel peer authentication verifies the **Droppy process as a whole**, not individual droplets inside Droppy.
-- **Residual Risks:** POSIX mode `0700`/`0600` directories and token files prevent access by other macOS user accounts (UID isolation), not same-UID processes. Same-UID isolation on the socket relies on `LOCAL_PEERTOKEN` code-signature validation; any co-loaded malicious droplet running inside `Droppy.app` shares Droppy's address space and socket access.
-
-## Verification and releases
-
-Unit tests exercise deterministic parsing and injected adapters; they do not
-prove real macOS permission grants, hardware support or notarization. A release
-still needs signed-bundle checks and a fresh-account smoke test for source setup,
-authentication, lock/sleep/wake, clipboard cleanup and updating an existing install.
-
-Keep the bundle identifier, Keychain service, signing identity, URL scheme,
-Sparkle key and update feed stable for existing installations. Build numbers must
-keep increasing; the public history restarted after build 52, so builds are the
-commit count plus 100.
+- Exposes `get_code`, `get_status`, and `list_recent_services` to AI coding apps connected to Droppy's native MCP server (`droplet_aether_*`).
+- Enabling agent access, sign-in link release, and Allow All requires Touch ID / macOS authentication.
+- `AetherAgentAccess` caps MCP waits at 55 seconds, requires DMARC alignment for email domain matching, never releases password-reset links or flagged lookalike URLs, caps auto-releases at 20 per hour, and shuts off automatically after 3 consecutive denials.
+- `AgentSkillsManager` writes marked `SKILL.md` files into `~/.claude`, `~/.codex`, or `~/.cursor` using `O_NOFOLLOW` / `renamex_np` ownership verification so foreign files are never overwritten or deleted.

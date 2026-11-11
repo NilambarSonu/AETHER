@@ -142,15 +142,27 @@ struct AetherReleaseHardeningTests {
             "CFBundleInfoDictionaryVersion": "6.0",
             "CFBundleName": "AETHER",
             "CFBundlePackageType": "BNDL",
-            "CFBundleShortVersionString": "1.0.0",
-            "CFBundleVersion": "1.0.0",
+            "CFBundleShortVersionString": "2.0.0",
+            "CFBundleVersion": "2.0.0",
             "NSPrincipalClass": "AETHERPrincipal",
             "DroppyDropletID": "aether",
             "DroppyKitABI": 1,
-            "DroppyKitMinAPI": "1.12.0",
-            "DroppyMinAppVersion": "15.3.0",
+            "DroppyKitMinAPI": "1.23.0",
+            "DroppyMinAppVersion": "16.2.0",
             "LSMinimumSystemVersion": "15.0",
-            "DroppyPermissions": ["hud", "clipboard-write"],
+            "DroppyPermissions": [
+                "hud",
+                "notch-banner",
+                "menu-bar",
+                "shelf-read",
+                "shelf-write",
+                "global-shortcuts",
+                "network-client",
+                "clipboard-write",
+                "full-disk-access-probe",
+                "accessibility",
+                "sound-playback",
+            ],
         ]
         let plistData = try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
         try plistData.write(to: bundle.appendingPathComponent("Contents/Info.plist"))
@@ -264,7 +276,9 @@ struct AetherReleaseHardeningTests {
         // Package.swift uses official DroppyKit dependency matching minAPI
         let pkgSwift = try String(contentsOf: root.appendingPathComponent("Droplet/Package.swift"), encoding: .utf8)
         #expect(pkgSwift.contains("https://gitlab.com/droppyformac1/droppykit.git"))
-        #expect(pkgSwift.contains("from: \"1.12.0\""))
+        #expect(pkgSwift.contains("from: \"1.23.0\""))
+        #expect(pkgSwift.contains("\"CodeCatchCore\""))
+        #expect(pkgSwift.contains("\"AetherEngine\""))
         #expect(pkgSwift.contains(".library(name: \"AETHER\", type: .dynamic, targets: [\"AETHER\"])"))
 
         // Manifest rules
@@ -272,15 +286,22 @@ struct AetherReleaseHardeningTests {
         let manifest = try JSONSerialization.jsonObject(with: manifestData) as? [String: Any]
         #expect(manifest?["id"] as? String == "aether")
         #expect(manifest?["name"] as? String == "AETHER")
+        #expect(manifest?["version"] as? String == "2.0.0")
         #expect((manifest?["summary"] as? String ?? "").count <= 60)
         #expect(manifest?["category"] as? String == "System")
-        #expect(manifest?["minAppVersion"] as? String == "15.3.0")
+        #expect(manifest?["minAppVersion"] as? String == "16.2.0")
         #expect(manifest?["minMacOS"] as? String == "15.0")
         #expect(manifest?["icon"] as? String == "AETHER.icon")
 
+        let surfaces = Set(manifest?["surfaces"] as? [String] ?? [])
+        #expect(surfaces.isSuperset(of: ["settings-pane", "menu-bar-extra", "shelf-widget", "live-activity", "hud"]))
+
+        let capabilities = Set(manifest?["capabilities"] as? [String] ?? [])
+        #expect(capabilities.isSuperset(of: ["hud", "notch-banner", "menu-bar", "global-shortcuts", "network-client", "clipboard-write", "full-disk-access-probe", "accessibility"]))
+
         let kit = manifest?["kit"] as? [String: Any]
         #expect(kit?["abi"] as? Int == 1)
-        #expect(kit?["minAPI"] as? String == "1.12.0")
+        #expect(kit?["minAPI"] as? String == "1.23.0")
 
         let creator = manifest?["creator"] as? [String: Any]
         #expect(creator?["kind"] as? String == "community")
@@ -293,11 +314,19 @@ struct AetherReleaseHardeningTests {
         #expect(source?["license"] as? String == "GPL-3.0")
         #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent("Droplet/LICENSE").path))
 
-        // Droplet Swift implementation conforms to HUDPresenting and respects .normal HUD priority
+        // Droplet Swift implementation conforms to all standalone capabilities and respects .normal HUD priority
         let dropletSrc = try String(contentsOf: root.appendingPathComponent("Droplet/Sources/AETHER/AetherDroplet.swift"), encoding: .utf8)
+        let hudSrc = try String(contentsOf: root.appendingPathComponent("Droplet/Sources/AETHER/DroppyBridges/AetherHUDBridge.swift"), encoding: .utf8)
         #expect(dropletSrc.contains("HUDPresenting"))
-        #expect(dropletSrc.contains("priority: .normal"))
+        #expect(dropletSrc.contains("SettingsPagesProviding"))
+        #expect(dropletSrc.contains("ShelfWidgetCompositionProviding"))
+        #expect(dropletSrc.contains("MenuBarExtraProviding"))
+        #expect(dropletSrc.contains("LiveActivityProviding"))
+        #expect(dropletSrc.contains("MCPToolProviding"))
+        #expect(hudSrc.contains("priority: .normal"))
         #expect(!dropletSrc.contains("priority: .high"))
+        #expect(!hudSrc.contains("priority: .high"))
+        #expect(!dropletSrc.contains("UserDefaults.standard"))
 
         // Synchronized AetherIPC sources match AetherCore byte-for-byte
         let syncedFiles = [

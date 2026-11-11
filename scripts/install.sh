@@ -21,7 +21,7 @@ if $RELEASING; then
     # Ship a current Public Suffix List (what the link check reads sites by); a change needs its own commit.
     scripts/update-psl.sh || echo "Couldn't refresh the Public Suffix List; releasing with the committed one." >&2
     if [ -n "$(git status --porcelain)" ]; then
-        echo "The Public Suffix List changed: commit Sources/CodeCatchCore/PublicSuffixList.swift, then release again." >&2; exit 1
+        echo "The Public Suffix List changed: commit Droplet/Sources/CodeCatchCore/PublicSuffixList.swift, then release again." >&2; exit 1
     fi
 fi
 # The release tags HEAD and the feed is pushed on top of it, so HEAD must be the pushed main.

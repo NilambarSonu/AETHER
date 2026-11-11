@@ -17,5 +17,5 @@ fi
     echo "$LIST"
     echo "\"\"\"#"
     echo "}"
-} > Sources/CodeCatchCore/PublicSuffixList.swift
+} > Droplet/Sources/CodeCatchCore/PublicSuffixList.swift
 echo "$(echo "$LIST" | wc -l | tr -d ' ') rules"

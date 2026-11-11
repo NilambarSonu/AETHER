@@ -1,21 +1,34 @@
 {
   "id": "aether",
   "name": "AETHER",
-  "version": "1.0.0",
-  "summary": "Live verification codes from AETHER in the Droppy notch",
-  "description": "Presents ephemeral verification codes delivered by the local AETHER host application over an authenticated Unix Domain Socket directly in the Droppy HUD, with one-click clipboard copy.\n\nSensitive source access (Full Disk Access, Apple Mail, Messages, IMAP credentials, Keychain secrets, and OAuth tokens) remains strictly inside the AETHER host application. This droplet receives only the service label, verification code, and expiration timestamp needed to display the HUD.",
+  "version": "2.0.0",
+  "summary": "Verification codes, sign-in links, and 2FA in Droppy",
+  "description": "Standalone 2FA verification code, sign-in link, and TOTP authenticator droplet for Droppy — delivering full CodeCatch parity directly inside Droppy with zero companion app.\n\nWatches Messages, Apple Mail, Gmail (OAuth PKCE), Outlook / Microsoft 365 (OAuth PKCE), iCloud, Yahoo, and IMAP mailboxes locally on your Mac, imports Bitwarden TOTP codes, enforces Touch ID / password protection, delivers arriving codes in Droppy's banner stack and notch HUD, exposes codes in Command Center and the Notch Shelf, and gates AI agent requests through Droppy MCP.",
   "category": "System",
   "kit": {
     "abi": 1,
-    "minAPI": "1.12.0"
+    "minAPI": "1.23.0"
   },
-  "minAppVersion": "15.3.0",
+  "minAppVersion": "16.2.0",
   "minMacOS": "15.0",
   "capabilities": [
     "hud",
-    "clipboard-write"
+    "notch-banner",
+    "menu-bar",
+    "shelf-read",
+    "shelf-write",
+    "global-shortcuts",
+    "network-client",
+    "clipboard-write",
+    "full-disk-access-probe",
+    "accessibility",
+    "sound-playback"
   ],
   "surfaces": [
+    "settings-pane",
+    "menu-bar-extra",
+    "shelf-widget",
+    "live-activity",
     "hud"
   ],
   "icon": "AETHER.icon",
@@ -35,6 +48,10 @@
     "verification",
     "code",
     "2fa",
+    "totp",
+    "mail",
+    "messages",
+    "bitwarden",
     "security",
     "aether"
   ]

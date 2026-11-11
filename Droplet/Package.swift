@@ -11,9 +11,19 @@ let package = Package(
     ],
     dependencies: [
         // Matches kit.minAPI in droplet.json so compatibility bounds stay synchronized.
-        .package(url: "https://gitlab.com/droppyformac1/droppykit.git", from: "1.12.0")
+        .package(url: "https://gitlab.com/droppyformac1/droppykit.git", from: "1.23.0")
     ],
     targets: [
+        .target(
+            name: "CodeCatchCore",
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
+        .target(
+            name: "AetherEngine",
+            dependencies: ["CodeCatchCore"],
+            swiftSettings: [.swiftLanguageMode(.v5)],
+            linkerSettings: [.linkedLibrary("sqlite3")]
+        ),
         .target(
             name: "AetherIPC",
             swiftSettings: [.swiftLanguageMode(.v6)]
@@ -21,6 +31,8 @@ let package = Package(
         .target(
             name: "AETHER",
             dependencies: [
+                "CodeCatchCore",
+                "AetherEngine",
                 "AetherIPC",
                 .product(name: "DroppyKit", package: "droppykit"),
             ],
