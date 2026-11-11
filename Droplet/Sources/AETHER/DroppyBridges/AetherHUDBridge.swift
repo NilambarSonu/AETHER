@@ -75,7 +75,7 @@ final class AetherHUDBridge {
             isExpanded: true
         ) {
             Image(systemName: item.isLink ? "link" : "key.viewfinder")
-                .font(.system(size: DroppyLiveActivityMetrics.compactSymbolSize, weight: .semibold))
+                .font(.system(size: DroppyLiveActivityMetrics.iconSize, weight: .semibold))
                 .foregroundStyle(item.isLink ? .teal : .blue)
         } trailing: {
             Text(verbatim: displayCode)
@@ -100,7 +100,7 @@ final class AetherHUDBridge {
             isExpanded: false
         ) {
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: DroppyLiveActivityMetrics.compactSymbolSize, weight: .semibold))
+                .font(.system(size: DroppyLiveActivityMetrics.iconSize, weight: .semibold))
                 .foregroundStyle(.green)
         } trailing: {
             Text(verbatim: "Copied")

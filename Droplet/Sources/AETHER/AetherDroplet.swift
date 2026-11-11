@@ -256,13 +256,13 @@ public final class AetherDroplet:
         if let pending = model.agents.request, pending.item != nil {
             return AnyView(
                 Image(systemName: "terminal.fill")
-                    .font(.system(size: DroppyLiveActivityMetrics.compactSymbolSize, weight: .semibold))
+                    .font(.system(size: DroppyLiveActivityMetrics.iconSize, weight: .semibold))
                     .foregroundStyle(.orange)
             )
         }
         return AnyView(
             Image(systemName: "key.viewfinder")
-                .font(.system(size: DroppyLiveActivityMetrics.compactSymbolSize, weight: .semibold))
+                .font(.system(size: DroppyLiveActivityMetrics.iconSize, weight: .semibold))
                 .foregroundStyle(.blue)
         )
     }
