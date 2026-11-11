@@ -36,6 +36,7 @@ public enum SourceStatus: Equatable, Sendable {
 
 public enum SourceEvent: Equatable, Sendable {
     case checked(Date)
+    case latencyMs(Int)
     case message(Date)
     case retry(Date?)
     case read(ReadPosition)
@@ -50,6 +51,7 @@ public enum ReadPosition: Equatable, Sendable {
 public struct SourceHealth: Equatable, Sendable {
     public var status: SourceStatus = .off
     public var lastChecked: Date?
+    public var lastLatencyMs: Int?
     public var lastMessage: Date?
     public var lastCode: Date?
     public var retryAt: Date?
@@ -57,12 +59,14 @@ public struct SourceHealth: Equatable, Sendable {
     public init(
         status: SourceStatus = .off,
         lastChecked: Date? = nil,
+        lastLatencyMs: Int? = nil,
         lastMessage: Date? = nil,
         lastCode: Date? = nil,
         retryAt: Date? = nil
     ) {
         self.status = status
         self.lastChecked = lastChecked
+        self.lastLatencyMs = lastLatencyMs
         self.lastMessage = lastMessage
         self.lastCode = lastCode
         self.retryAt = retryAt
@@ -71,6 +75,7 @@ public struct SourceHealth: Equatable, Sendable {
     public mutating func record(_ event: SourceEvent) {
         switch event {
         case .checked(let date): lastChecked = max(lastChecked ?? date, date)
+        case .latencyMs(let ms): lastLatencyMs = max(0, ms)
         case .message(let date): lastMessage = max(lastMessage ?? date, date)
         case .retry(let date): retryAt = date
         case .read: break

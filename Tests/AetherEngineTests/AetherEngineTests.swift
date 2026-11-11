@@ -90,12 +90,12 @@ struct AetherEngineTests {
 
     @Test("OAuth defaults strip CodeCatch IDs and encrypted custom AETHER client resolution works")
     func oauthCallbackValidationAndCustomClients() throws {
-        // Zero upstream CodeCatch IDs in compiled defaults
+        // Zero upstream CodeCatch IDs in compiled defaults; built-in AETHER production IDs present
         #expect(!MailOAuth.google.clientID.contains("374242175460"))
         #expect(!MailOAuth.microsoft.clientID.contains("946bd1c2"))
         #expect(!MailOAuth.microsoft.redirect.contains("codecatch"))
-        #expect(!MailOAuth.google.isConfigured)
-        #expect(!MailOAuth.microsoft.isConfigured)
+        #expect(MailOAuth.google.isConfigured)
+        #expect(MailOAuth.microsoft.isConfigured)
 
         let secrets = AetherSecretStore.inMemory()
         let clientID = "999999999999-aethertestclient123.apps.googleusercontent.com"
@@ -394,6 +394,155 @@ struct AetherEngineTests {
         )
         let verifiedLink = CodeItem(verifiedMsg, code: nil, link: URL(string: "https://sso.partner.example/auth"), resetsPassword: false)
         #expect(verifiedLink.linkNotice?.warns == false)
+    }
+
+    @Test("Production AETHER Google and Microsoft OAuth Client IDs resolve with exact redirects")
+    func productionOAuthDefaultsResolveCleanly() {
+        let secrets = AetherSecretStore.inMemory()
+        let google = MailOAuth.resolved(for: .google, in: secrets)
+        #expect(google.isConfigured)
+        #expect(google.clientID == "210406503188-m2pr68n1e17pv3pmqnj1hv946r6lbg22.apps.googleusercontent.com")
+        #expect(google.redirect == "com.googleusercontent.apps.210406503188-m2pr68n1e17pv3pmqnj1hv946r6lbg22:/oauth2redirect")
+
+        let microsoft = MailOAuth.resolved(for: .microsoft, in: secrets)
+        #expect(microsoft.isConfigured)
+        #expect(microsoft.clientID == "3265c45a-7440-4992-aaf7-b176bb294c44")
+        #expect(microsoft.redirect == "app.getdroppy.droplet.aether://auth")
+    }
+
+    @Test("AutoTyper blocks failed DMARC senders, chat/notes/meeting apps, non-editable UI, and mismatched browser hosts")
+    func autoTyperContextGuardrails() {
+        #expect(
+            AutoTyper.evaluateTarget(.init(
+                expectedDomain: "github.com",
+                senderVerified: false,
+                frontmostBundleID: "com.apple.Safari",
+                focusedRole: "AXTextField",
+                focusedDocumentHost: "github.com"
+            )) == .deniedUnverifiedSender
+        )
+        #expect(
+            AutoTyper.evaluateTarget(.init(
+                expectedDomain: "github.com",
+                senderVerified: true,
+                frontmostBundleID: "com.tinyspeck.slackmacgap",
+                focusedRole: "AXTextField",
+                focusedDocumentHost: nil
+            )) == .deniedUntrustedApp
+        )
+        #expect(
+            AutoTyper.evaluateTarget(.init(
+                expectedDomain: "github.com",
+                senderVerified: true,
+                frontmostBundleID: "us.zoom.xos",
+                focusedRole: "AXTextField",
+                focusedDocumentHost: nil
+            )) == .deniedUntrustedApp
+        )
+        #expect(
+            AutoTyper.evaluateTarget(.init(
+                expectedDomain: "github.com",
+                senderVerified: true,
+                frontmostBundleID: "com.apple.Safari",
+                focusedRole: "AXButton",
+                focusedDocumentHost: "github.com"
+            )) == .deniedUnfocusedField
+        )
+        #expect(
+            AutoTyper.evaluateTarget(.init(
+                expectedDomain: "github.com",
+                senderVerified: true,
+                frontmostBundleID: "com.apple.Safari",
+                focusedRole: "AXTextField",
+                focusedDocumentHost: "evil-phish.example"
+            )) == .deniedDomainMismatch
+        )
+        #expect(
+            AutoTyper.evaluateTarget(.init(
+                expectedDomain: "github.com",
+                senderVerified: true,
+                frontmostBundleID: "com.apple.Safari",
+                focusedRole: "AXTextField",
+                focusedDocumentHost: "login.github.com"
+            )) == .allow
+        )
+    }
+
+    @Test("Spoofed DMARC-failed mail blocks automatic copy/typing while surfacing item cleanly")
+    @MainActor
+    func dmarcFailBlocksAutomaticCopy() async throws {
+        let env = makeIsolatedModel()
+        let typed = Box<[String]>([])
+        env.defaults.set(true, forKey: AetherPrefs.autoCopy)
+        env.defaults.set(true, forKey: AetherPrefs.autoType)
+        env.defaults.set(true, forKey: AetherPrefs.blockUnverifiedAutoCopy)
+        env.model.hooks.typeCode = { typed.value.append($0) }
+        try await env.model.authenticate()
+
+        let spoofed = IncomingMessage(
+            text: "Your GitHub verification code is 741852",
+            subject: "Verify login",
+            senderName: "GitHub",
+            senderID: "noreply@github.com",
+            sourceKey: "gmail-1",
+            sourceLabel: "Gmail",
+            date: Date(),
+            isMail: true,
+            senderVerified: false
+        )
+        env.model.ingest(spoofed)
+
+        let item = try #require(env.model.items.first)
+        #expect(item.hasFailedSenderAuth)
+        #expect(env.copied.value.isEmpty)
+        #expect(typed.value.isEmpty)
+
+        // Manual explicit copy still succeeds once unlocked
+        env.model.copy(item, userInitiated: true)
+        #expect(env.copied.value == ["741852"])
+    }
+
+    @Test("AetherClipboard restores prior non-concealed clipboard on TTL and bounds oversized regex inputs")
+    @MainActor
+    func clipboardRestoreAndOversizedExtractorBound() async throws {
+        let suite = "app.getdroppy.droplet.aether.clip.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        AetherPrefs.register(in: defaults)
+        defaults.set(true, forKey: AetherPrefs.clearClipboard)
+        defaults.set(true, forKey: AetherPrefs.restoreClipboard)
+
+        let pb = NSPasteboard.withUniqueName()
+        pb.clearContents()
+        pb.setString("previous-user-note", forType: .string)
+
+        let clipboard = AetherClipboard(defaults: defaults, clearDelay: 0.08)
+        let id = UUID()
+        clipboard.copy("918273", id: id, pasteboard: pb)
+        #expect(pb.string(forType: .string) == "918273")
+
+        try await Task.sleep(for: .seconds(0.25))
+        #expect(pb.string(forType: .string) == "previous-user-note")
+
+        // Oversized input (~180 KB padding + code at tail) completes quickly with head+tail bounding
+        let filler = String(repeating: "Newsletter paragraph filler text. ", count: 5_400)
+        let massive = filler + "\nYour security verification code is 654321."
+        #expect(CodeExtractor.code(in: massive) == "654321")
+    }
+
+    @Test("SourceHealth tracks check latency and Inbox vs Junk configuration")
+    func latencyAndJunkSupport() {
+        var health = SourceHealth()
+        health.record(.latencyMs(42))
+        #expect(health.lastLatencyMs == 42)
+
+        let gmailDefault = GmailAPI(auth: .issued("tok"))
+        let gmailWithJunk = GmailAPI(auth: .issued("tok"), includeJunk: true)
+        #expect(!gmailDefault.includeJunk)
+        #expect(gmailWithJunk.includeJunk)
+
+        let outlookWithJunk = OutlookAPI(auth: .issued("tok"), includeJunk: true)
+        #expect(outlookWithJunk.includeJunk)
     }
 }
 

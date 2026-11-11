@@ -65,7 +65,7 @@ struct GeneralSettingsPage: View {
                         icon: "text.cursor",
                         iconColor: .teal,
                         topColor: .mint,
-                        infoTip: "Types arriving codes key-by-key into focused inputs while unlocked (supports split digit boxes). Requires Accessibility.",
+                        infoTip: "Types arriving codes into verified input fields while blocking chat, notes, screen-share apps, and mismatched browser domains.",
                         isOn: model.boolBinding(AetherPrefs.autoType)
                     )
                     .onChange(of: autoType) { _, enabled in

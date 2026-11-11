@@ -4,8 +4,43 @@
 import CodeCatchCore
 import Foundation
 
-/// A message from any source, before code extraction.
+/// A message from any source, before or after off-main-thread code/link extraction.
 public struct IncomingMessage: Sendable {
+    public struct PrecomputedExtraction: Sendable, Equatable {
+        public let detection: CodeExtractor.Detection?
+        public let linkURL: URL?
+        public let linkResetsPassword: Bool
+        public let hasActionLink: Bool
+        public let validitySeconds: TimeInterval?
+
+        public init(
+            detection: CodeExtractor.Detection?,
+            linkURL: URL?,
+            linkResetsPassword: Bool,
+            hasActionLink: Bool,
+            validitySeconds: TimeInterval?
+        ) {
+            self.detection = detection
+            self.linkURL = linkURL
+            self.linkResetsPassword = linkResetsPassword
+            self.hasActionLink = hasActionLink
+            self.validitySeconds = validitySeconds
+        }
+
+        public static func compute(for message: IncomingMessage) -> PrecomputedExtraction {
+            let full = message.fullText
+            let detection = CodeExtractor.detect(in: full)
+            let foundLink = message.isMail ? SignInLink.find(in: message.links, subject: message.subject ?? "") : nil
+            return PrecomputedExtraction(
+                detection: detection,
+                linkURL: foundLink?.url,
+                linkResetsPassword: foundLink?.kind == .passwordReset,
+                hasActionLink: foundLink != nil,
+                validitySeconds: CodeExtractor.validity(in: full)
+            )
+        }
+    }
+
     public static let mailReadLimit = 262_144
 
     public var text: String
@@ -21,6 +56,7 @@ public struct IncomingMessage: Sendable {
     public var senderVerified: Bool?
     public var internetMessageID: String?
     public var webURL: URL?
+    public var precomputed: PrecomputedExtraction? = nil
 
     public init(
         text: String,
@@ -35,7 +71,8 @@ public struct IncomingMessage: Sendable {
         messageID: String? = nil,
         senderVerified: Bool? = nil,
         internetMessageID: String? = nil,
-        webURL: URL? = nil
+        webURL: URL? = nil,
+        precomputed: PrecomputedExtraction? = nil
     ) {
         self.text = text
         self.subject = subject
@@ -50,11 +87,12 @@ public struct IncomingMessage: Sendable {
         self.senderVerified = senderVerified
         self.internetMessageID = internetMessageID
         self.webURL = webURL
+        self.precomputed = precomputed
     }
 
     public init(mail raw: Data, receiver: MIME.Receiver? = nil, account: MailAccount, date: Date?, messageID: String?, webURL: URL? = nil) {
         let m = MIME.parse(raw.prefix(Self.mailReadLimit), receiver: receiver)
-        self.init(
+        let msg = IncomingMessage(
             text: m.text,
             subject: m.subject,
             senderName: m.fromName,
@@ -69,6 +107,15 @@ public struct IncomingMessage: Sendable {
             internetMessageID: m.messageID,
             webURL: webURL
         )
+        self = msg
+        self.precomputed = PrecomputedExtraction.compute(for: msg)
+    }
+
+    public func withPrecomputedExtraction() -> IncomingMessage {
+        guard precomputed == nil else { return self }
+        var copy = self
+        copy.precomputed = PrecomputedExtraction.compute(for: self)
+        return copy
     }
 
     public var fullText: String { [subject, text].compactMap { $0 }.joined(separator: "\n") }

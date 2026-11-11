@@ -226,6 +226,17 @@ struct SourcesSettingsPage: View {
                         )
                     }
                 }
+
+                DropletSettingsCard {
+                    AetherSettingsToggleRow(
+                        title: "Include Spam / Junk folders",
+                        subtitle: "Also watches Gmail Spam & Outlook Junk for legitimate codes.",
+                        icon: "tray.and.arrow.down.fill",
+                        iconColor: .orange,
+                        infoTip: "Off by default. Unverified DMARC messages from Spam/Junk require manual click to copy.",
+                        isOn: setting(AetherPrefs.includeJunkMail)
+                    )
+                }
             }
 
             DropletSettingsSection {
@@ -301,6 +312,9 @@ struct SourcesSettingsPage: View {
                 .foregroundStyle(.secondary)
             HStack(spacing: 14) {
                 Text("Checked: \(relative(h.lastChecked))")
+                if let latency = h.lastLatencyMs {
+                    Text("Latency: \(latency) ms")
+                }
                 Text("Last message: \(relative(h.lastMessage))")
                 Text("Last code: \(relative(h.lastCode))")
             }

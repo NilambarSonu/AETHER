@@ -259,10 +259,27 @@ struct AccountEditorSettingsPage: View {
 
             if let kind = account.providerKind, useOAuth {
                 DropletSettingsSection {
-                    settingsSectionHeader("AETHER OAuth client")
+                    settingsSectionHeader("OAuth credentials")
                 } content: {
                     DropletSettingsCard {
-                        oauthClientConfigurationRows(kind: kind)
+                        AetherSettingsControlRow(
+                            title: showClientSetup ? "Hide custom OAuth setup" : "Custom OAuth override",
+                            subtitle: customClientID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                ? "Using built-in AETHER production OAuth client"
+                                : "Using custom Keychain-sealed OAuth Client ID",
+                            icon: "checkmark.seal.fill",
+                            iconColor: .green
+                        ) {
+                            Button(showClientSetup ? "Hide" : "Configure…") {
+                                showClientSetup.toggle()
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
+
+                        if showClientSetup {
+                            oauthClientConfigurationRows(kind: kind)
+                        }
                     }
                 }
             }
@@ -360,12 +377,10 @@ struct AccountEditorSettingsPage: View {
             title: "\(provider.name) sign-in",
             subtitle: hasNewGrant
                 ? "Authenticated as \(trimmedUser)"
-                : provider.isConfigured
-                    ? "Sign in with AETHER's configured OAuth client"
-                    : "Configure an AETHER OAuth Client ID below, or switch to App Password",
+                : "Sign in securely via \(provider.name) (read-only OAuth PKCE)",
             icon: hasNewGrant || hasExistingGrant ? "checkmark.shield.fill" : "globe",
-            iconColor: hasNewGrant || hasExistingGrant ? .green : (provider.isConfigured ? .blue : .orange),
-            infoTip: "Uses macOS ASWebAuthenticationSession with SecRandomCopyBytes PKCE. Zero third-party CodeCatch identifiers."
+            iconColor: hasNewGrant || hasExistingGrant ? .green : .blue,
+            infoTip: "Uses macOS ASWebAuthenticationSession with SecRandomCopyBytes PKCE and AETHER's own first-party OAuth client."
         ) {
             HStack(spacing: 8) {
                 if !provider.isConfigured {

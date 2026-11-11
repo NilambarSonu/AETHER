@@ -117,13 +117,19 @@ jobs:
           print("Droplet/Package.resolved verified:", dk["state"])
           PY
 
-          echo "==> Running official droppykit version, lint, build, validate..."
+          echo "==> Preparing AETHER.icon from Droplet/Assets/aether.png..."
+          ./scripts/prepare-droplet-icon.sh
+
+          echo "==> Running official droppykit version, lint, build, strip, validate..."
           (
             cd Droplet
             droppykit version
             droppykit lint --no-binary --strict
-            swift build --target AETHER --configuration release --arch arm64 -Xswiftc -enable-library-evolution
             droppykit build
+            strip -x .build/AETHER.droplet/Contents/MacOS/AETHER
+            find .build/AETHER.droplet -name ".DS_Store" -delete
+            du -sh .build/AETHER.droplet
+            ls -lh .build/AETHER.droplet/Contents/MacOS/AETHER
             droppykit validate
           )
           ./scripts/build-droplet.sh --validate-only
@@ -162,10 +168,12 @@ jobs:
           ./scripts/build-droplet.sh --stage-dist build-droplet-dist --bundle Droplet/.build/AETHER.droplet
 
           echo "==> Verifying extracted ZIP root layout (AETHER.droplet/ + README-TESTING.md ONLY)..."
+          du -sh build-droplet-dist/AETHER.droplet
           ls -la build-droplet-dist
           TMP_ZIP="$RUNNER_TEMP/verify-AETHER-Droplet.zip"
           rm -f "$TMP_ZIP"
-          (cd build-droplet-dist && zip -qr "$TMP_ZIP" AETHER.droplet README-TESTING.md)
+          (cd build-droplet-dist && zip -qr -9 "$TMP_ZIP" AETHER.droplet README-TESTING.md)
+          ls -lh "$TMP_ZIP"
           python3 - "$TMP_ZIP" <<'PY'
           import pathlib, subprocess, sys
 
@@ -251,7 +259,8 @@ jobs:
           fi
           echo "RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
 
-          (cd release-stage && zip -qr "$GITHUB_WORKSPACE/release-assets/AETHER-Droplet-${TAG}.zip" AETHER.droplet README-TESTING.md)
+          (cd release-stage && zip -qr -9 "$GITHUB_WORKSPACE/release-assets/AETHER-Droplet-${TAG}.zip" AETHER.droplet README-TESTING.md)
+          ls -lh "release-assets/AETHER-Droplet-${TAG}.zip"
           cp "release-assets/AETHER-Droplet-${TAG}.zip" "release-assets/AETHER-Droplet.zip"
           (cd release-assets && shasum -a 256 "AETHER-Droplet-${TAG}.zip" "AETHER-Droplet.zip" > "AETHER-Droplet-${TAG}.sha256.txt")
           cat "release-assets/AETHER-Droplet-${TAG}.sha256.txt"

@@ -1,9 +1,13 @@
 # AETHER
 
+<p align="left">
+  <img src="Droplet/Assets/aether.png" width="76" height="76" alt="AETHER App Icon" />
+</p>
+
 [![CI](https://github.com/NilambarSonu/AETHER/actions/workflows/macos-build.yml/badge.svg)](https://github.com/NilambarSonu/AETHER/actions/workflows/macos-build.yml)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Platform: macOS 15.0+](https://img.shields.io/badge/macOS-15.0%2B-black?logo=apple)](https://www.apple.com/macos/)
-[![Apple Silicon](https://img.shields.io/badge/Architecture-Apple%20Silicon-orange)](https://support.apple.com/en-us/HT211814)
+[![Architecture: Universal](https://img.shields.io/badge/Architecture-Universal%20arm64%20%2B%20x86__64-orange)](https://support.apple.com/en-us/HT211814)
 
 **AETHER** is a privacy-first, local 2FA verification code, sign-in link, and Bitwarden TOTP authenticator engine evolved from [CodeCatch](https://github.com/ugzv/CodeCatch) — packaged as a **standalone `AETHER.droplet`** (`DroppyKit v1.23.0+`) that runs directly inside [Droppy](https://getdroppy.app) with **no companion app or helper daemon required**.
 
@@ -26,7 +30,7 @@ AETHER runs inside one self-contained Droppy droplet bundle (`Droplet/`):
 - [x] **Phase 1.1–1.2:** IPC Security Verification & Peer Validator Foundation
 - [x] **Phase 2A–2B:** Provider Modernization, FSEvents Event-Driven Engine & Icon Privacy
 - [x] **Phase 3A–3F:** Headless `AetherCore`, Length-Prefixed Framing, Kernel Audit Token Validation & Official `DroppyKit` Droplet Integration
-- [x] **Phase 4:** Standalone **`AETHER.droplet` v2.0.0** (`DroppyKit v1.23.0`) — Full `CodeCatch` parity inside Droppy (`SettingsPagesProviding`, `ShelfWidgetCompositionProviding`, `MenuBarExtraProviding`, `HUDPresenting`, `LiveActivityProviding`, `MCPToolProviding`)
+- [x] **Phase 4:** Standalone **`AETHER.droplet` v2.2.0** (`DroppyKit v1.23.0`) — Full parity inside Droppy (`SettingsPagesProviding`, `ShelfWidgetCompositionProviding`, `MenuBarExtraProviding`, `HUDPresenting`, `LiveActivityProviding`, `MCPToolProviding`), first-party verified Google & Microsoft OAuth Client IDs, DMARC anti-spoof auto-copy blocking, context-aware Accessibility Auto-Type guardrails, configurable Clipboard TTL with previous-clipboard restoration, Spam/Junk opt-in, 50 ms `FSEventWatcher`, IMAP idle wake signal, LZMA-compressed Public Suffix List, and stripped compact bundle packaging
 
 ---
 
@@ -35,10 +39,10 @@ AETHER runs inside one self-contained Droppy droplet bundle (`Droplet/`):
 ```
 Aether/
 ├── Droplet/                          # Official DroppyKit v1.23.0 standalone droplet
-│   ├── Package.swift                 # CodeCatchCore + AetherEngine + AetherIPC + AETHER + AETHERHarness
+│   ├── Package.swift                 # CodeCatchCore + AetherEngine + AETHER + AETHERHarness (slim link)
 │   ├── Package.resolved              # Pinned DroppyKit v1.23.0 (11e48698...)
 │   ├── droplet.json                  # Manifest: settings-pane, menu-bar-extra, shelf-widget, live-activity, hud
-│   ├── Assets/Creator.png            # Square 512x512 creator emblem
+│   ├── Assets/aether.png             # Universal AETHER 3D OTP squircle emblem (512x512)
 │   ├── LICENSE & NOTICE.md           # GPLv3 license & upstream attribution
 │   └── Sources/
 │       ├── CodeCatchCore/            # Deterministic OTP extraction, MIME, TOTP, links, identity rules (704 fixtures)
@@ -54,6 +58,7 @@ Aether/
 │   └── CodeCatchTests/               # Host integration tests
 └── scripts/
     ├── build-droplet.sh              # Official DroppyKit build/validate & safe staged installer
+    ├── prepare-droplet-icon.sh       # Generates .droppykit/AETHER.icon from Droplet/Assets/aether.png
     ├── test.sh                       # Full workspace test suite runner
     └── install.sh                    # Packaging utility
 ```

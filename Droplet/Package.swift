@@ -33,7 +33,6 @@ let package = Package(
             dependencies: [
                 "CodeCatchCore",
                 "AetherEngine",
-                "AetherIPC",
                 .product(name: "DroppyKit", package: "droppykit"),
             ],
             swiftSettings: [.swiftLanguageMode(.v6)]

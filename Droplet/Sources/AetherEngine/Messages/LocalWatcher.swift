@@ -46,7 +46,7 @@ public final class LocalWatcher {
 
         var fseventsActive = false
         if let dir = store.watchDirectory, FileManager.default.fileExists(atPath: dir) {
-            let watcher = FSEventWatcher(paths: [dir], latency: 0.2, queue: queue) { [weak self] in
+            let watcher = FSEventWatcher(paths: [dir], latency: 0.05, queue: queue) { [weak self] in
                 self?.poll(lookback: lookback, status: status, deliver: deliver, event: event)
             }
             if watcher.start() {
@@ -105,12 +105,17 @@ public final class LocalWatcher {
             Task { @MainActor in event(.retry(nil)) }
         }
         do {
-            let messages = try store.newMessages()
+            let start = ContinuousClock.now
+            let rawMessages = try store.newMessages()
+            let messages = rawMessages.map { $0.withPrecomputedExtraction() }
+            let elapsed = ContinuousClock.now - start
+            let ms = Int((Double(elapsed.components.seconds) * 1_000.0) + (Double(elapsed.components.attoseconds) / 1e15))
             let checkedAt = Date()
             let read = store.readPosition
             report(.live)
             Task { @MainActor in
                 event(.checked(checkedAt))
+                event(.latencyMs(ms))
                 if let newest = messages.map(\.date).max() { event(.message(newest)) }
                 for message in messages { deliver(message) }
                 if let read { event(.read(read)) }

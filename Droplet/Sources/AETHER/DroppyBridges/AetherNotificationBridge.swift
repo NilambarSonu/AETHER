@@ -65,8 +65,10 @@ final class AetherNotificationBridge {
                 DropletNotificationAction(id: "copy-link", title: "Copy Link"),
             ]
         } else {
-            title = item.service + senderSuffix
-            if !unlocked {
+            title = item.hasFailedSenderAuth ? "⚠ \(item.service)\(senderSuffix)" : (item.service + senderSuffix)
+            if item.hasFailedSenderAuth {
+                body = "Unverified sender failed DMARC check — auto-copy paused. Open or tap Copy only if trusted."
+            } else if !unlocked {
                 body = "Locked — click Copy to unlock with Touch ID or your password."
             } else if blur {
                 body = "Code ready (hidden until hover)."

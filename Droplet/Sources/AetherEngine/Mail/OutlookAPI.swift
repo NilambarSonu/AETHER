@@ -5,13 +5,18 @@ import CodeCatchCore
 import Foundation
 
 public struct OutlookAPI: MailAPI {
+    public let includeJunk: Bool
     private let send: @Sendable (URLRequest) async throws -> Data
 
-    public init(auth: MailAPIAuth, send: (@Sendable (URLRequest) async throws -> Data)? = nil) {
+    public init(auth: MailAPIAuth, includeJunk: Bool = false, send: (@Sendable (URLRequest) async throws -> Data)? = nil) {
+        self.includeJunk = includeJunk
         self.send = send ?? { try await auth.send($0, provider: "Microsoft") }
     }
-    public init(account: MailAccount, secrets: AetherSecretStore = .keychain) {
-        self.init(auth: .saved(.microsoft, tokenKey: account.activeRefreshTokenKey(in: secrets), secrets: secrets))
+    public init(account: MailAccount, secrets: AetherSecretStore = .keychain, includeJunk: Bool = false) {
+        self.init(
+            auth: .saved(.microsoft, tokenKey: account.activeRefreshTokenKey(in: secrets), secrets: secrets),
+            includeJunk: includeJunk
+        )
     }
 
     public func emailAddress() async throws -> String {
@@ -65,7 +70,17 @@ public struct OutlookAPI: MailAPI {
     }
 
     private func list(_ query: [String: String], allPages: Bool = false) async throws -> [(id: String, received: String)] {
-        var page = try await json("me/mailFolders/inbox/messages", query.merging(["$select": "id,receivedDateTime"]) { a, _ in a })
+        let folders = includeJunk ? ["me/mailFolders/inbox/messages", "me/mailFolders/junkemail/messages"] : ["me/mailFolders/inbox/messages"]
+        var combined: [(id: String, received: String)] = []
+        for folder in folders {
+            let folderItems = try await listFolder(folder, query: query, allPages: allPages)
+            combined.append(contentsOf: folderItems)
+        }
+        return includeJunk ? combined.sorted { $0.received < $1.received } : combined
+    }
+
+    private func listFolder(_ path: String, query: [String: String], allPages: Bool) async throws -> [(id: String, received: String)] {
+        var page = try await json(path, query.merging(["$select": "id,receivedDateTime"]) { a, _ in a })
         var messages: [(id: String, received: String)] = []
         var visited = Set<URL>()
         while true {

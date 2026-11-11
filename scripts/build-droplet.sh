@@ -384,6 +384,10 @@ EOF
     echo "==> Official DroppyKit CLI: $DROPPYKIT_CLI"
     "$DROPPYKIT_CLI" version
 
+    if [ -x "$PROJECT_ROOT/scripts/prepare-droplet-icon.sh" ]; then
+        "$PROJECT_ROOT/scripts/prepare-droplet-icon.sh"
+    fi
+
     BUILD_ARGS=()
     if [ -n "$BUILD_ARCH" ]; then
         BUILD_ARGS+=(--arch "$BUILD_ARCH")
@@ -393,6 +397,11 @@ EOF
 
     echo "==> Building AETHER.droplet via official 'droppykit build'..."
     (cd "$DROPLET_PKG" && "$DROPPYKIT_CLI" build "${BUILD_ARGS[@]+"${BUILD_ARGS[@]}"}")
+
+    if [ ! -d "$DEFAULT_BUNDLE/Contents/_CodeSignature" ]; then
+        strip -x "$DEFAULT_BUNDLE/Contents/MacOS/AETHER"
+        find "$DEFAULT_BUNDLE" -name ".DS_Store" -delete
+    fi
 
     echo "==> Validating AETHER.droplet via official 'droppykit validate'..."
     (cd "$DROPLET_PKG" && "$DROPPYKIT_CLI" validate "${VALIDATE_ARGS[@]+"${VALIDATE_ARGS[@]}"}")

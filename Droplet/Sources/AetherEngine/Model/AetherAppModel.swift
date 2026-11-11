@@ -109,6 +109,9 @@ public final class AetherAppModel: ObservableObject {
         var resolvedHooks = hooks ?? AetherRuntimeHooks()
         if hooks == nil {
             resolvedHooks.copyToClipboard = { text, id in resolvedClipboard.copy(text, id: id) }
+            resolvedHooks.canAutoType = { item in
+                AutoTyper.canTypeSafely(expectedDomain: item.domain, senderVerified: item.senderVerified)
+            }
             resolvedHooks.typeCode = { code in
                 AutoTyper.type(code) {
                     AutoTyper.canType() && session.isUnlocked && defaults.bool(forKey: AetherPrefs.autoType)
@@ -122,6 +125,7 @@ public final class AetherAppModel: ObservableObject {
             $0.mapValues {
                 var h = $0
                 h.lastChecked = nil
+                h.lastLatencyMs = nil
                 return h
             }
         }.removeDuplicates().dropFirst()
@@ -265,6 +269,10 @@ public final class AetherAppModel: ObservableObject {
         items = items.compactMap(filtered)
         let changed = Set(previous.filter { old in !items.contains(old) }.map(\.id))
         clipboard.clearIfOurs(ids: changed)
+        if key == AetherPrefs.includeJunkMail {
+            restartMail()
+            return
+        }
         restartMessages()
         restartMail()
     }
@@ -321,11 +329,20 @@ public final class AetherAppModel: ObservableObject {
         let age = Date().timeIntervalSince(message.date)
         guard age < history, message.date > clearedAt, !isIgnored(message.senderID) else { return }
 
-        let detection = isOn(AetherPrefs.receivedCodes) ? CodeExtractor.detect(in: message.fullText) : nil
+        let pre = message.precomputed
+        let detection = isOn(AetherPrefs.receivedCodes) ? (pre != nil ? pre?.detection : CodeExtractor.detect(in: message.fullText)) : nil
         let notCodeKey = detection.map { CodeItem.notCodeKey(for: $0, from: message) }
         let notCode = notCodeKey.map { key in notCodes.contains { $0.key == key } } ?? false
         let code = notCode ? nil : detection?.code
-        let detectedLink = message.isMail ? SignInLink.find(in: message.links, subject: message.subject ?? "") : nil
+        let detectedLink: (url: URL, kind: SignInLink.Kind)? = if message.isMail {
+            if let pre {
+                pre.linkURL.map { ($0, pre.linkResetsPassword ? .passwordReset : .signIn) }
+            } else {
+                SignInLink.find(in: message.links, subject: message.subject ?? "")
+            }
+        } else {
+            nil
+        }
         let resets = detectedLink?.kind == .passwordReset
         let link = isOn(resets ? AetherPrefs.resetLinks : AetherPrefs.signInLinks) ? detectedLink?.url : nil
         var item = CodeItem(message, code: code, link: link, resetsPassword: resets)
@@ -352,9 +369,10 @@ public final class AetherAppModel: ObservableObject {
 
         guard item.shouldAnnounce(at: Date()) else { return }
         guard !agents.isWaiting else { return }
-        if let code, isUnlocked {
+        let blockUnverified = item.hasFailedSenderAuth && isOn(AetherPrefs.blockUnverifiedAutoCopy)
+        if let code, isUnlocked, !blockUnverified {
             if isOn(AetherPrefs.autoCopy) { hooks.copyToClipboard(code, item.id) }
-            if isOn(AetherPrefs.autoType) { hooks.typeCode(code) }
+            if isOn(AetherPrefs.autoType), hooks.canAutoType(item) { hooks.typeCode(code) }
         }
         if isOn(AetherPrefs.showBanner) {
             unlockError = nil

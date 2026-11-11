@@ -6,12 +6,21 @@ import Foundation
 
 public struct GmailAPI: MailAPI {
     public let auth: MailAPIAuth
+    public let includeJunk: Bool
 
-    private static let excludedLabels: Set<String> = ["TRASH", "SPAM", "DRAFT"]
+    private static let baseExcludedLabels: Set<String> = ["TRASH", "DRAFT"]
 
-    public init(auth: MailAPIAuth) { self.auth = auth }
-    public init(account: MailAccount, secrets: AetherSecretStore = .keychain) {
-        self.init(auth: .saved(.google, tokenKey: account.activeRefreshTokenKey(in: secrets), secrets: secrets))
+    public init(auth: MailAPIAuth, includeJunk: Bool = false) {
+        self.auth = auth
+        self.includeJunk = includeJunk
+    }
+
+    public init(account: MailAccount, secrets: AetherSecretStore = .keychain, includeJunk: Bool = false) {
+        self.init(auth: .saved(.google, tokenKey: account.activeRefreshTokenKey(in: secrets), secrets: secrets), includeJunk: includeJunk)
+    }
+
+    private var excludedLabels: Set<String> {
+        includeJunk ? Self.baseExcludedLabels : Self.baseExcludedLabels.union(["SPAM"])
     }
 
     public func emailAddress() async throws -> String {
@@ -27,13 +36,14 @@ public struct GmailAPI: MailAPI {
 
     public func inbox(since date: Date, limit: Int) async throws -> [String] {
         let cutoff = Int(max(0, date.timeIntervalSince1970 - 5))
-        let json = try await get(
-            "messages",
-            queryItems: [
-                URLQueryItem(name: "q", value: "after:\(cutoff) -in:trash -in:spam -in:drafts"),
-                URLQueryItem(name: "maxResults", value: "\(limit)"),
-            ]
-        )
+        var query = [
+            URLQueryItem(name: "q", value: includeJunk ? "after:\(cutoff) -in:trash -in:drafts" : "after:\(cutoff) -in:trash -in:spam -in:drafts"),
+            URLQueryItem(name: "maxResults", value: "\(limit)"),
+        ]
+        if includeJunk {
+            query.append(URLQueryItem(name: "includeSpamTrash", value: "true"))
+        }
+        let json = try await get("messages", queryItems: query)
         return ((json["messages"] as? [[String: Any]]) ?? []).compactMap { $0["id"] as? String }.reversed()
     }
 
@@ -85,7 +95,7 @@ public struct GmailAPI: MailAPI {
         } catch MailAPIError.gone {
             return nil
         }
-        if let labels = json["labelIds"] as? [String], labels.contains(where: Self.excludedLabels.contains) {
+        if let labels = json["labelIds"] as? [String], labels.contains(where: excludedLabels.contains) {
             return nil
         }
         guard let raw = (json["raw"] as? String).flatMap(Data.init(base64URL:)) else { return nil }
@@ -109,7 +119,7 @@ public struct GmailAPI: MailAPI {
 
     private func collectMessageID(from message: [String: Any]?, into ids: inout [String], seen: inout Set<String>) {
         guard let message, let id = message["id"] as? String else { return }
-        if let labels = message["labelIds"] as? [String], labels.contains(where: Self.excludedLabels.contains) {
+        if let labels = message["labelIds"] as? [String], labels.contains(where: excludedLabels.contains) {
             return
         }
         if seen.insert(id).inserted {

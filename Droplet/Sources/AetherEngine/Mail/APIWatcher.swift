@@ -61,10 +61,10 @@ struct SeenIDBuffer: Sendable {
 }
 
 public enum APIWatcher {
-    public static func api(for account: MailAccount, secrets: AetherSecretStore = .keychain) -> any MailAPI {
+    public static func api(for account: MailAccount, secrets: AetherSecretStore = .keychain, includeJunk: Bool = false) -> any MailAPI {
         account.isOutlook
-            ? OutlookAPI(account: account, secrets: secrets)
-            : GmailAPI(account: account, secrets: secrets)
+            ? OutlookAPI(account: account, secrets: secrets, includeJunk: includeJunk)
+            : GmailAPI(account: account, secrets: secrets, includeJunk: includeJunk)
     }
 
     public static func watch(
@@ -76,12 +76,13 @@ public enum APIWatcher {
         event: @escaping @MainActor (SourceEvent) -> Void = { _ in },
         lookback: TimeInterval = 7 * 86400,
         mailbox: (any MailAPI)? = nil,
+        includeJunk: Bool = false,
         poll: TimeInterval = 5.0,
         burstPoll: TimeInterval = 2.5,
         retryDelay: TimeInterval = 5.0,
         wakeSignal: PollWakeSignal? = nil
     ) async {
-        let mailbox = mailbox ?? api(for: account, secrets: secrets)
+        let mailbox = mailbox ?? api(for: account, secrets: secrets, includeJunk: includeJunk)
         var cursor: String? = if case .cursor(let saved) = position { saved } else { nil }
         var resuming = cursor != nil
         var seen = SeenIDBuffer(capacity: 2_000)
@@ -146,6 +147,7 @@ public enum APIWatcher {
                 backoff = retryDelay
                 while !Task.isCancelled {
                     pollCount += 1
+                    let cycleStart = ContinuousClock.now
                     let (added, next) = try await mailbox.added(since: cursor!)
                     let pending = (resuming ? added.suffix(MailWatcher.backfill) : added[...]).filter { !seen.contains($0) }
                     for start in stride(from: 0, to: pending.count, by: 50) {
@@ -171,6 +173,9 @@ public enum APIWatcher {
                     if !reconciledAny {
                         try await receive([])
                     }
+                    let elapsed = ContinuousClock.now - cycleStart
+                    let ms = Int((Double(elapsed.components.seconds) * 1_000.0) + (Double(elapsed.components.attoseconds) / 1e15))
+                    await event(.latencyMs(ms))
 
                     resuming = false
                     cursor = next

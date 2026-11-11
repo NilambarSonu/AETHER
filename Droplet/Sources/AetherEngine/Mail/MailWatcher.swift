@@ -16,7 +16,8 @@ public enum MailWatcher {
         event: @escaping @MainActor (SourceEvent) -> Void = { _ in },
         lookback: TimeInterval = 7 * 86400,
         connection: (@Sendable () -> any MailConnection)? = nil,
-        retryDelay: TimeInterval = 5
+        retryDelay: TimeInterval = 5,
+        wakeSignal: PollWakeSignal? = nil
     ) async {
         var (lastUID, uidValidity): (Int?, Int?) = if case .uid(let uid, let validity) = position { (uid, validity) } else { (nil, nil) }
         var resuming = lastUID != nil
@@ -59,6 +60,7 @@ public enum MailWatcher {
                     backoff = retryDelay
                     let canIdle = await conn.capabilities.contains("IDLE")
                     while !Task.isCancelled {
+                        let pollStart = ContinuousClock.now
                         var new = try await conn.search("UID \(lastUID! + 1):*").filter { $0 > lastUID! }.sorted()
                         if resuming { new = Array(new.suffix(backfill)) }
                         if new.isEmpty { try await receive([]) }
@@ -67,11 +69,26 @@ public enum MailWatcher {
                             try await receive(batch)
                             await commit(batch.last!)
                         }
+                        let elapsed = ContinuousClock.now - pollStart
+                        let ms = Int((Double(elapsed.components.seconds) * 1_000.0) + (Double(elapsed.components.attoseconds) / 1e15))
+                        await event(.latencyMs(ms))
                         resuming = false
                         if canIdle {
-                            try await conn.idle(renewAfter: 540)
+                            let wakeTask = wakeSignal.map { signal in
+                                Task {
+                                    if await signal.sleep(for: 245) != nil, let imap = conn as? IMAPConnection {
+                                        await imap.wakeIdle()
+                                    }
+                                }
+                            }
+                            defer { wakeTask?.cancel() }
+                            try await conn.idle(renewAfter: 240)
                         } else {
-                            try await Task.sleep(for: .seconds(20))
+                            if let wakeSignal {
+                                _ = await wakeSignal.sleep(for: 20)
+                            } else {
+                                try await Task.sleep(for: .seconds(20))
+                            }
                             _ = try await conn.command("NOOP", timeout: 30)
                         }
                     }
@@ -104,7 +121,7 @@ public enum MailWatcher {
         if let newest = messages.map(\.date).max() { await event(.message(newest)) }
         for message in messages {
             try Task.checkCancellation()
-            await deliver(message)
+            await deliver(message.withPrecomputedExtraction())
         }
     }
 

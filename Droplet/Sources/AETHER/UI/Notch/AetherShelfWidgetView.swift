@@ -70,13 +70,19 @@ struct AetherShelfWidgetView: View {
                 }
             }
 
-            Button("Refresh", systemImage: "arrow.clockwise") {
+            Button {
                 model.boostSources()
+            } label: {
+                Image(systemName: "arrow.clockwise")
             }
+            .help("Check mailboxes now")
 
-            Button("Settings", systemImage: "gearshape") {
+            Button {
                 _ = droplet.openSettings()
+            } label: {
+                Image(systemName: "gearshape")
             }
+            .help("Open AETHER Settings")
         } content: {
             DroppyWidgetTimeline(every: 1) { tickNow in
                 VStack(alignment: .leading, spacing: metrics.rowSpacing) {
@@ -262,6 +268,9 @@ struct AetherShelfWidgetView: View {
                             .font(metrics.font(.body))
                             .foregroundStyle(primaryInk)
                             .lineLimit(1)
+                        if !compact {
+                            AetherVerificationBadge(item: item, size: 10)
+                        }
                         let origin = model.origination(item)
                         if !compact && !origin.isEmpty {
                             Text(verbatim: origin)
@@ -275,7 +284,7 @@ struct AetherShelfWidgetView: View {
                         if !sub.isEmpty {
                             Text(verbatim: sub)
                                 .font(metrics.font(.caption))
-                                .foregroundStyle(secondaryInk)
+                                .foregroundStyle(item.hasFailedSenderAuth ? AnyShapeStyle(.orange) : AnyShapeStyle(secondaryInk))
                                 .lineLimit(1)
                                 .truncationMode(.middle)
                         }
@@ -323,6 +332,9 @@ struct AetherShelfWidgetView: View {
     }
 
     private func rowSubtitle(for item: CodeItem) -> String {
+        if item.hasFailedSenderAuth {
+            return "Unverified sender · DMARC fail"
+        }
         if showPreviews && !item.sender.isEmpty && !item.preview.isEmpty {
             return "\(item.sender) · \(item.preview)"
         }

@@ -57,6 +57,7 @@ public final class SourceMonitor: ObservableObject {
         AetherPrefs.register(in: defaults)
         self.watchMail =
             watchMail ?? { account, callbacks in
+                let includeJunk = defaults.bool(forKey: AetherPrefs.includeJunkMail)
                 if account.usesSignIn {
                     await APIWatcher.watch(
                         account,
@@ -66,6 +67,7 @@ public final class SourceMonitor: ObservableObject {
                         deliver: callbacks.deliver,
                         event: callbacks.event,
                         lookback: AetherPrefs.history(in: defaults),
+                        includeJunk: includeJunk,
                         wakeSignal: callbacks.wakeSignal
                     )
                 } else {
@@ -76,7 +78,8 @@ public final class SourceMonitor: ObservableObject {
                         status: callbacks.status,
                         deliver: callbacks.deliver,
                         event: callbacks.event,
-                        lookback: AetherPrefs.history(in: defaults)
+                        lookback: AetherPrefs.history(in: defaults),
+                        wakeSignal: callbacks.wakeSignal
                     )
                 }
             }
@@ -177,7 +180,7 @@ public final class SourceMonitor: ObservableObject {
         } else if key == AppleMailStore.sourceKey {
             restartAppleMail()
         } else if let account = accounts.first(where: { $0.id.uuidString == key }) {
-            if account.usesSignIn, tasks[key] != nil, health[key]?.status == .live, let signal = wakeSignals[key] {
+            if tasks[key] != nil, health[key]?.status == .live, let signal = wakeSignals[key] {
                 signal.wake(burstSeconds: 45)
             } else {
                 restart(account)
@@ -185,7 +188,7 @@ public final class SourceMonitor: ObservableObject {
         }
     }
 
-    /// Triggers an immediate poll + burst window across all active cloud API mail watchers.
+    /// Triggers an immediate poll + burst window across all active mail watchers.
     public func boostAll(burstSeconds: TimeInterval = 45) {
         for signal in wakeSignals.values {
             signal.wake(burstSeconds: burstSeconds)
@@ -212,7 +215,7 @@ public final class SourceMonitor: ObservableObject {
         let key = account.id.uuidString
         tasks.removeValue(forKey: key)?.cancel()
         wakeSignals.removeValue(forKey: key)
-        let wakeSignal = account.usesSignIn ? PollWakeSignal() : nil
+        let wakeSignal = PollWakeSignal()
         let callbacks = begin(key, resuming: resuming, wakeSignal: wakeSignal)
         guard receiving, account.enabled else { return }
         guard hasCredential(account) else {
@@ -223,9 +226,7 @@ public final class SourceMonitor: ObservableObject {
             health[key]?.status = .attention(SourceStatus.waitingForNetwork)
             return
         }
-        if let wakeSignal {
-            wakeSignals[key] = wakeSignal
-        }
+        wakeSignals[key] = wakeSignal
         health[key]?.status = .connecting
         let watch = watchMail
         tasks[key] = Task { await watch(account, callbacks) }

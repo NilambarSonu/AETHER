@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.2.0] - 2026-11-11
+
+- Embedded verified first-party AETHER Google OAuth iOS Client ID and Microsoft Entra public Client ID directly into the droplet alongside one-click OAuth setup and Keychain-sealed custom overrides.
+- Adopted AETHER's universal 3D glass OTP icon (`aether.png`) across bundle resources, Finder/Droppy icon composer metadata, Menu Bar popover, test HUDs, and documentation.
+- Added anti-spoof DMARC fail blocking on auto-copy and auto-type with explicit verified/unverified sender status indicators across HUD cards, Shelf rows, Notifications, and Popover.
+- Added Context-Aware Auto-Type Guardrails blocking blind keystroke injection into chat, notes, and screen-sharing apps (`Slack`, `Discord`, `Messages`, `Notes`, `Zoom`, `Teams`, etc.), unfocused windows, or mismatched browser domains.
+- Added configurable Clipboard TTL (`30s`–`5m`), MessAuto-grade safe previous-clipboard restoration after expiry, opt-in Spam/Junk watching (`GmailAPI` & `OutlookAPI`), 50 ms `FSEventWatcher` debounce, 240 s `IMAP` `IDLE` keepalive with instant manual wake (`PollWakeSignal`), off-main-thread code extraction, per-source latency telemetry, LZMA-compressed Public Suffix List, and stripped local symbols to slash bundle footprint.
+
 ## [2.1.0] - 2026-11-11
 
 - Purged upstream third-party CodeCatch OAuth client IDs and added encrypted custom AETHER Google/Microsoft OAuth Client ID configuration alongside App Password / IMAP fallback.

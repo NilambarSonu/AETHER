@@ -14,7 +14,7 @@ public final class FSEventWatcher: @unchecked Sendable {
     private let lock = NSLock()
     private var isRunning = false
 
-    public init(paths: [String], latency: TimeInterval = 0.2, queue: DispatchQueue, onChange: @escaping @Sendable () -> Void) {
+    public init(paths: [String], latency: TimeInterval = 0.05, queue: DispatchQueue, onChange: @escaping @Sendable () -> Void) {
         self.paths = paths
         self.latency = latency
         self.queue = queue

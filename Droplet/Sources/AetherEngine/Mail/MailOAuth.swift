@@ -72,9 +72,9 @@ public struct MailOAuth: Sendable {
     public let revokeURL: String?
     public let address: @Sendable (String) async throws -> String
 
-    /// Compiled-in AETHER OAuth Client IDs (empty until configured with first-party AETHER credentials).
-    public static let bundledGoogleClientID = ""
-    public static let bundledMicrosoftClientID = ""
+    /// Compiled-in first-party AETHER OAuth Client IDs (Google iOS PKCE + Microsoft Entra public client).
+    public static let bundledGoogleClientID = "210406503188-m2pr68n1e17pv3pmqnj1hv946r6lbg22.apps.googleusercontent.com"
+    public static let bundledMicrosoftClientID = "3265c45a-7440-4992-aaf7-b176bb294c44"
     public static let microsoftDefaultRedirect = "app.getdroppy.droplet.aether://auth"
 
     public var isConfigured: Bool {

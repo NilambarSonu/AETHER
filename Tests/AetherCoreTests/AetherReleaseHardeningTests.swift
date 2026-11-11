@@ -286,7 +286,7 @@ struct AetherReleaseHardeningTests {
         let manifest = try JSONSerialization.jsonObject(with: manifestData) as? [String: Any]
         #expect(manifest?["id"] as? String == "aether")
         #expect(manifest?["name"] as? String == "AETHER")
-        #expect(manifest?["version"] as? String == "2.1.0")
+        #expect(manifest?["version"] as? String == "2.2.0")
         #expect((manifest?["summary"] as? String ?? "").count <= 60)
         #expect(manifest?["category"] as? String == "System")
         #expect(manifest?["minAppVersion"] as? String == "16.2.0")
@@ -305,8 +305,8 @@ struct AetherReleaseHardeningTests {
 
         let creator = manifest?["creator"] as? [String: Any]
         #expect(creator?["kind"] as? String == "community")
-        #expect(creator?["avatar"] as? String == "Creator.png")
-        let avatarPath = root.appendingPathComponent("Droplet/Assets/Creator.png")
+        #expect(creator?["avatar"] as? String == "aether.png")
+        let avatarPath = root.appendingPathComponent("Droplet/Assets/aether.png")
         #expect(FileManager.default.fileExists(atPath: avatarPath.path))
 
         let source = manifest?["source"] as? [String: Any]
@@ -314,13 +314,15 @@ struct AetherReleaseHardeningTests {
         #expect(source?["license"] as? String == "GPL-3.0")
         #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent("Droplet/LICENSE").path))
 
-        // Droplet Swift implementation conforms to all standalone capabilities and respects .normal HUD priority
+        // Droplet Swift implementation conforms to all standalone capabilities and embeds first-party AETHER OAuth IDs
         let dropletSrc = try String(contentsOf: root.appendingPathComponent("Droplet/Sources/AETHER/AetherDroplet.swift"), encoding: .utf8)
         let hudSrc = try String(contentsOf: root.appendingPathComponent("Droplet/Sources/AETHER/DroppyBridges/AetherHUDBridge.swift"), encoding: .utf8)
         let oauthSrc = try String(contentsOf: root.appendingPathComponent("Droplet/Sources/AetherEngine/Mail/MailOAuth.swift"), encoding: .utf8)
         #expect(!oauthSrc.contains("374242175460"))
         #expect(!oauthSrc.contains("946bd1c2"))
         #expect(!oauthSrc.contains("uros.codecatch"))
+        #expect(oauthSrc.contains("210406503188-m2pr68n1e17pv3pmqnj1hv946r6lbg22.apps.googleusercontent.com"))
+        #expect(oauthSrc.contains("3265c45a-7440-4992-aaf7-b176bb294c44"))
         #expect(dropletSrc.contains("HUDPresenting"))
         #expect(dropletSrc.contains("SettingsPagesProviding"))
         #expect(dropletSrc.contains("ShelfWidgetCompositionProviding"))

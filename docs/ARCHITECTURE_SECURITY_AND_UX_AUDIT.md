@@ -151,3 +151,20 @@ AETHER **never creates any SQLite database, Core Data store, Realm file, or JSON
 3. **Microsoft Graph Delta Query Sync (`me/mailFolders/inbox/messages/delta`):** Replace `receivedDateTime ge` filter polling with stateful opaque Graph delta tokens for true O(changes) enterprise Outlook scale.
 4. **Google CASA Tier 2 Production Verification:** Once your GCP Brand (`AETHER`) is ready for public distribution without any Testing-mode 7-day refresh limit or unverified prompt, complete Google Brand Verification + CASA Tier 2 audit for `gmail.readonly`.
 
+
+---
+
+## 8. Competitive & Weaknesses (`W-01`–`W-26`) Closure Matrix (`v2.2.0`)
+
+| Weakness / Rivalry Gap | Inheritance Baseline (`v2.0`) | AETHER Status (`v2.2.0`) |
+| :--- | :--- | :--- |
+| **`W-01` / Brand & OAuth provenance** | Hardcoded CodeCatch OAuth IDs & warning screen | **Closed.** Purged CodeCatch IDs; built-in first-party Google iOS (`210406503188-...`) & Microsoft Entra (`3265c45a-...`) IDs + `aether.png` identity + `/aether`, `/aether-policy`, `/aether-terms` pages spec. |
+| **`W-02` / Native Notification vs Notch** | Basic banner card | **Closed.** Interactive `DropletNotification` (`Copy`, `Open`, `Dismiss`) + two-shape custom Notch HUD + Compact Live Activity (beats *bytemail* without switching mail clients). |
+| **`W-03` / `W-13` Fixed 90s Clipboard & Overwrite Loss** | Fixed 90s clear; overwrote prior clipboard forever | **Closed (Beats *MessAuto*).** Configurable TTL (`30s`–`5m`) + safe prior-clipboard capture/restoration (`restoreClipboard`), while always wiping concealed secrets & locking hard. |
+| **`W-04` / `W-12` Latency, Long Blobs & Regex Stalls** | `@MainActor` regex on large blobs | **Closed.** Precomputes `CodeExtractor` + `SignInLink` off `@MainActor` (`PrecomputedExtraction`), bounds giant inputs (`131_072` chars), and compresses Public Suffix List via LZMA. |
+| **`W-15` Spam / Junk Coverage** | Excluded Spam/Junk globally | **Closed (Beats *Copy 2FA*).** Opt-in `includeJunkMail` checks Gmail `SPAM` & Outlook `junkemail` while mandating DMARC manual tap safety. |
+| **`W-16` Sleep / Network / IMAP Latency** | 540s IMAP `IDLE`, 10s poll, 200ms FSEvents | **Closed (Beats *AutoCodeBar*).** 50 ms `FSEventWatcher`, 2.5s burst / 5.0s API polling, 240s IMAP keepalive with instant `PollWakeSignal`, and live per-source latency (`ms`) metrics. |
+| **`W-18` Sender Spoofing (`DMARC`)** | Parsed `senderVerified` but still blind auto-copied | **Closed.** Blocks blind auto-copy/auto-type on DMARC failures (`blockUnverifiedAutoCopy`) and surfaces verified/unverified badges across HUD, Banners, Shelf, and Menu Bar. |
+| **`W-23` Third-Party Favicon Tracking** | Plaintext `<domain>.png` cache filenames | **Closed.** Defaults `OFF`; bundles local crisp brand marks (`AetherBrandCatalog`); hashes opt-in fetched cache files via keyed `HMAC-SHA256`. |
+| **`W-24` Blind Auto-Type Accessibility** | Typed into whatever window was active | **Closed (Beats *MessAuto* & *OTPfill*).** Refuses failed DMARC mail, blocks Slack/Discord/Messages/Notes/Zoom/Teams, verifies editable `AXUIElement` focus, and checks browser URL host against expected sender domain. |
+| **Bundle Footprint Optimization** | 12.2 MB unstripped universal bundle / 3.17 MB ZIP | **Optimized.** `512×512` `aether.png` (`79 KB`), LZMA Public Suffix List, detached unused `AetherIPC` link, and `strip -x` + `zip -9` packaging. |

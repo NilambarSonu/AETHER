@@ -73,11 +73,45 @@ struct PrivacySettingsPage: View {
             } content: {
                 DropletSettingsCard {
                     AetherSettingsToggleRow(
-                        title: "Clear clipboard after 90 seconds",
+                        title: "Auto-clear copied codes",
                         icon: "clock.arrow.circlepath",
                         iconColor: .orange,
-                        infoTip: "Marks copied codes concealed & local-only (skipping Universal Clipboard) and wipes them after 90 seconds.",
+                        infoTip: "Marks copied codes concealed & local-only (skipping Universal Clipboard) and wipes them automatically after the chosen delay.",
                         isOn: model.boolBinding(AetherPrefs.clearClipboard)
+                    )
+
+                    if model.isOn(AetherPrefs.clearClipboard) {
+                        Picker(selection: model.intBinding(AetherPrefs.clipboardTTL)) {
+                            Text("30 Seconds").tag(30)
+                            Text("60 Seconds").tag(60)
+                            Text("90 Seconds").tag(90)
+                            Text("2 Minutes").tag(120)
+                            Text("5 Minutes").tag(300)
+                        } label: {
+                            AetherRowLabel(
+                                title: "Clear clipboard after",
+                                icon: "timer",
+                                color: .orange
+                            )
+                        }
+
+                        AetherSettingsToggleRow(
+                            title: "Restore previous clipboard",
+                            subtitle: "Replaces your earlier text, link, or image cleanly after the code expires.",
+                            icon: "arrow.uturn.backward.circle.fill",
+                            iconColor: .blue,
+                            infoTip: "Captures safe non-concealed items before copying an OTP; hard wipes still occur if your Mac locks or history is cleared.",
+                            isOn: model.boolBinding(AetherPrefs.restoreClipboard)
+                        )
+                    }
+
+                    AetherSettingsToggleRow(
+                        title: "Block auto-copy on unverified mail",
+                        subtitle: "Requires manual confirmation when DMARC domain verification explicitly fails.",
+                        icon: "exclamationmark.shield.fill",
+                        iconColor: .red,
+                        infoTip: "Protects your clipboard and auto-type from spoofed phishing emails while still showing the warning in the notch.",
+                        isOn: model.boolBinding(AetherPrefs.blockUnverifiedAutoCopy)
                     )
 
                     AetherSettingsToggleRow(

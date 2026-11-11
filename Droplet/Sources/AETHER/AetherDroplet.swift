@@ -404,6 +404,9 @@ public final class AetherDroplet:
             }
             return confirmed
         }
+        target.hooks.canAutoType = { item in
+            AutoTyper.canTypeSafely(expectedDomain: item.domain, senderVerified: item.senderVerified)
+        }
         target.hooks.openURL = { [weak self] url in
             if self?.host?.workspace.open(url) != true {
                 NSWorkspace.shared.open(url)
@@ -418,7 +421,7 @@ public final class AetherDroplet:
             return self.widgetVisible || self.popoverVisible
         }
         target.hooks.appVersion = {
-            Bundle(for: AETHERPrincipal.self).object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "2.1.0"
+            Bundle(for: AETHERPrincipal.self).object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "2.2.0"
         }
     }
 

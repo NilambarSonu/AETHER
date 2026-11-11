@@ -457,12 +457,7 @@ struct AetherServiceAvatar: View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
         Group {
             if item.origin == .test {
-                AetherSettingsIconBadge(
-                    symbol: "checkmark.seal.fill",
-                    top: Color(red: 0.24, green: 0.62, blue: 1.00),
-                    bottom: Color(red: 0.08, green: 0.42, blue: 0.88),
-                    size: size
-                )
+                AetherAppIconBadge(size: size)
             } else if let cached = icons.icon(for: item.domain) {
                 Group {
                     if cached.fullBleed {
@@ -618,5 +613,67 @@ extension Date {
         if Calendar.current.isDateInToday(self) { return "Today" }
         if Calendar.current.isDateInYesterday(self) { return "Yesterday" }
         return formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
+    }
+}
+
+private final class AetherBundleResourceAnchor {}
+
+enum AetherBundleResources {
+    @MainActor
+    static let appIconImage: NSImage? = {
+        let bundle = Bundle(for: AetherBundleResourceAnchor.self)
+        if let url = bundle.url(forResource: "aether", withExtension: "png", subdirectory: "Assets"),
+           let image = NSImage(contentsOf: url)
+        {
+            return image
+        }
+        return nil
+    }()
+}
+
+struct AetherAppIconBadge: View {
+    var size: CGFloat = 24
+
+    var body: some View {
+        let radius = DroppyRadius.appIcon(forSide: size)
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        Group {
+            if let image = AetherBundleResources.appIconImage {
+                Image(nsImage: image)
+                    .resizable()
+                    .interpolation(.high)
+                    .scaledToFill()
+                    .frame(width: size, height: size)
+                    .clipShape(shape)
+                    .overlay(shape.strokeBorder(.white.opacity(0.22), lineWidth: 0.6))
+            } else {
+                AetherSettingsIconBadge(
+                    symbol: "key.viewfinder",
+                    top: Color(red: 1.00, green: 0.68, blue: 0.54),
+                    bottom: Color(red: 0.66, green: 0.56, blue: 0.96),
+                    size: size
+                )
+            }
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+struct AetherVerificationBadge: View {
+    let item: CodeItem
+    var size: CGFloat = 11
+
+    var body: some View {
+        if item.hasFailedSenderAuth {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: size, weight: .semibold))
+                .foregroundStyle(.orange)
+                .help("Sender failed DMARC domain verification")
+        } else if item.isVerifiedSender {
+            Image(systemName: "checkmark.shield.fill")
+                .font(.system(size: size, weight: .semibold))
+                .foregroundStyle(.green)
+                .help("Sender domain verified by DMARC")
+        }
     }
 }

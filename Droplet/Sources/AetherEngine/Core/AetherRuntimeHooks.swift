@@ -20,6 +20,7 @@ public struct AetherRuntimeHooks {
     public var presentHUD: @MainActor (CodeItem, Bool) -> Void
     public var playArrivalSound: @MainActor () -> Void
     public var copyToClipboard: @MainActor (String, UUID) -> Void
+    public var canAutoType: @MainActor (CodeItem) -> Bool
     public var typeCode: @MainActor (String) -> Void
     public var confirmLink: LinkConfirmation
     public var openURL: @MainActor (URL) -> Void
@@ -35,6 +36,7 @@ public struct AetherRuntimeHooks {
         presentHUD: @escaping @MainActor (CodeItem, Bool) -> Void = { _, _ in },
         playArrivalSound: @escaping @MainActor () -> Void = {},
         copyToClipboard: @escaping @MainActor (String, UUID) -> Void = { _, _ in },
+        canAutoType: @escaping @MainActor (CodeItem) -> Bool = { _ in true },
         typeCode: @escaping @MainActor (String) -> Void = { _ in },
         confirmLink: @escaping LinkConfirmation = { _, _, _, _ in false },
         openURL: @escaping @MainActor (URL) -> Void = { NSWorkspace.shared.open($0) },
@@ -48,6 +50,7 @@ public struct AetherRuntimeHooks {
         self.presentHUD = presentHUD
         self.playArrivalSound = playArrivalSound
         self.copyToClipboard = copyToClipboard
+        self.canAutoType = canAutoType
         self.typeCode = typeCode
         self.confirmLink = confirmLink
         self.openURL = openURL

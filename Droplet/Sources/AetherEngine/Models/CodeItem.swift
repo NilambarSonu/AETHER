@@ -103,6 +103,8 @@ public struct CodeItem: Identifiable, Equatable, Sendable {
     public var countdown: TimeInterval { min(lifetime, 600) }
     public func showsCountdown(now: Date) -> Bool { expires.timeIntervalSince(now) <= countdown }
     public var isLink: Bool { code.isEmpty }
+    public var hasFailedSenderAuth: Bool { origin == .mail && senderVerified == false }
+    public var isVerifiedSender: Bool { origin == .mail && senderVerified == true }
     public var kind: Kind { !isLink ? .code : resetsPassword ? .passwordReset : .signIn }
     public var linkSetting: String { resetsPassword ? AetherPrefs.resetLinks : AetherPrefs.signInLinks }
     public var destination: URL? { link.map(LinkWrapper.destination) }
@@ -146,7 +148,8 @@ public extension CodeItem {
             snippet: String(((message.subject.map { $0 + " — " } ?? "") + body).prefix(280)),
             received: message.date,
             expires: message.date.addingTimeInterval(
-                CodeExtractor.validity(in: message.fullText)
+                message.precomputed?.validitySeconds
+                    ?? CodeExtractor.validity(in: message.fullText)
                     ?? (code == nil ? Self.linkValidity : Self.defaultValidity)),
             domain: message.senderVerified == false
                 ? nil

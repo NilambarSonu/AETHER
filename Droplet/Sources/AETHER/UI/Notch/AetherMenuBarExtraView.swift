@@ -110,12 +110,7 @@ struct AetherMenuBarExtraView: View {
 
     private var headerBar: some View {
         HStack(spacing: 8) {
-            AetherSettingsIconBadge(
-                symbol: "key.viewfinder",
-                top: Color(red: 0.24, green: 0.62, blue: 1.00),
-                bottom: Color(red: 0.08, green: 0.40, blue: 0.88),
-                size: 22
-            )
+            AetherAppIconBadge(size: 24)
             Text("AETHER")
                 .font(.headline)
             Spacer()
@@ -250,6 +245,7 @@ struct AetherMenuBarExtraView: View {
                         Text(verbatim: item.service)
                             .font(.callout.weight(.medium))
                             .lineLimit(1)
+                        AetherVerificationBadge(item: item, size: 10)
                         let origin = model.origination(item)
                         if !origin.isEmpty {
                             Text(verbatim: origin)
@@ -262,7 +258,7 @@ struct AetherMenuBarExtraView: View {
                     if !secondary.isEmpty {
                         Text(verbatim: secondary)
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(item.hasFailedSenderAuth ? Color.orange : Color.secondary)
                             .lineLimit(1)
                             .truncationMode(.middle)
                     } else if item.origin != .vault {
@@ -314,6 +310,9 @@ struct AetherMenuBarExtraView: View {
     }
 
     private func rowSubtitle(for item: CodeItem) -> String {
+        if item.hasFailedSenderAuth {
+            return "Unverified sender · DMARC fail"
+        }
         if showPreviews && !item.sender.isEmpty && !item.preview.isEmpty {
             return "\(item.sender) · \(item.preview)"
         }

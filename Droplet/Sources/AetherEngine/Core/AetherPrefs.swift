@@ -9,6 +9,10 @@ public enum AetherPrefs {
     public static let autoCopy = "autoCopy"
     public static let autoType = "autoType"
     public static let clearClipboard = "clearClipboard"
+    public static let clipboardTTL = "clipboardTTL"
+    public static let restoreClipboard = "restoreClipboard"
+    public static let includeJunkMail = "includeJunkMail"
+    public static let blockUnverifiedAutoCopy = "blockUnverifiedAutoCopy"
     public static let codeInMenuBar = "codeInMenuBar"
     public static let sound = "sound"
     public static let messages = "messagesEnabled"
@@ -53,6 +57,10 @@ public enum AetherPrefs {
             autoCopy: true,
             autoType: false,
             clearClipboard: true,
+            clipboardTTL: 90,
+            restoreClipboard: false,
+            includeJunkMail: false,
+            blockUnverifiedAutoCopy: true,
             codeInMenuBar: false,
             sound: false,
             messages: true,
@@ -65,6 +73,11 @@ public enum AetherPrefs {
             clearOnLock: false,
             hotkeys: true,
         ])
+    }
+
+    public static func clipboardTTLSeconds(in defaults: UserDefaults) -> TimeInterval {
+        let raw = defaults.object(forKey: clipboardTTL) as? Int ?? 90
+        return TimeInterval(min(max(raw, 15), 600))
     }
 
     public static func history(in defaults: UserDefaults) -> TimeInterval {

@@ -137,7 +137,7 @@ public actor IMAPConnection: MailConnection {
         return try await withTimeout(timeout) { try await self.readUntilTagged(t) }
     }
 
-    public func idle(renewAfter: TimeInterval = 540) async throws {
+    public func idle(renewAfter: TimeInterval = 240) async throws {
         tag += 1
         let t = "C\(tag)"
         if pendingExists {
@@ -164,6 +164,11 @@ public actor IMAPConnection: MailConnection {
             let r = try await readResponse()
             if r.text.hasPrefix(t + " ") { return }
         }
+    }
+
+    public func wakeIdle() async {
+        pendingExists = true
+        try? await send("DONE\r\n")
     }
 
     private func readUntilTagged(_ t: String) async throws -> [Response] {

@@ -161,15 +161,18 @@ private struct AetherHUDCardView: View {
                 )
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(verbatim: item.service)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(AdaptiveColors.notchSurfacePrimaryText)
-                        .lineLimit(1)
+                    HStack(spacing: 5) {
+                        Text(verbatim: item.service)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(AdaptiveColors.notchSurfacePrimaryText)
+                            .lineLimit(1)
+                        AetherVerificationBadge(item: item, size: 11)
+                    }
 
                     if let secondary = secondarySubtitle(unlocked: unlocked, showPreviews: showPreviews) {
                         Text(verbatim: secondary)
                             .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(AdaptiveColors.notchSurfaceSecondaryText)
+                            .foregroundStyle(item.hasFailedSenderAuth ? AnyShapeStyle(.orange) : AnyShapeStyle(AdaptiveColors.notchSurfaceSecondaryText))
                             .lineLimit(1)
                             .truncationMode(.middle)
                     }
@@ -220,6 +223,10 @@ private struct AetherHUDCardView: View {
     }
 
     private func secondarySubtitle(unlocked: Bool, showPreviews: Bool) -> String? {
+        if item.hasFailedSenderAuth {
+            let senderNote = item.sender.isEmpty ? "" : " (\(item.sender))"
+            return "Unverified sender\(senderNote) · Tap Copy only if trusted"
+        }
         if !unlocked {
             return "Unlock with Touch ID or your password to copy"
         }

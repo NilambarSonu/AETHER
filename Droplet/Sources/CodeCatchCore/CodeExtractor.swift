@@ -286,8 +286,14 @@ public enum CodeExtractor {
     // MARK: - Helpers
 
     private static func clean(_ text: String) -> String {
+        // Guard against pathological multi-hundred-KB single-line inputs blocking extraction regexes.
+        let bounded: String = if text.count > 131_072 {
+            String(text.prefix(98_304)) + "\n" + String(text.suffix(32_768))
+        } else {
+            text
+        }
         // Strip non-breaking spaces, zero-width chars (ZWSP, ZWNJ, ZWJ, BOM, soft hyphen), and direction marks
-        var t = text.replacingOccurrences(of: "\u{00A0}", with: " ")
+        var t = bounded.replacingOccurrences(of: "\u{00A0}", with: " ")
             .replacingOccurrences(of: "[\u{00AD}\u{200B}-\u{200D}\u{200E}\u{200F}\u{202A}-\u{202E}\u{2066}-\u{2069}\u{FEFF}]", with: "", options: .regularExpression)
         t = normalizeDigits(t)
         t = urlsAndEmails.stringByReplacingMatches(in: t, range: NSRange(location: 0, length: (t as NSString).length), withTemplate: " ")
