@@ -49,7 +49,7 @@ struct SourcesSettingsPage: View {
                         subtitle: ignoredSummary,
                         page: AetherSettingsRoute.ignoredSenders.rawValue
                     ) {
-                        AetherSymbolTile(symbol: "nosign", color: .gray, size: DropletSettingsPageLink.tileSize)
+                        AetherSymbolTile(symbol: "nosign", color: .gray, size: AetherSymbolTile.settingsLinkSize)
                     }
 
                     DropletSettingsPageLink(
@@ -57,7 +57,7 @@ struct SourcesSettingsPage: View {
                         subtitle: notCodeSummary,
                         page: AetherSettingsRoute.notCodes.rawValue
                     ) {
-                        AetherSymbolTile(symbol: "xmark.seal.fill", color: .gray, size: DropletSettingsPageLink.tileSize)
+                        AetherSymbolTile(symbol: "xmark.seal.fill", color: .gray, size: AetherSymbolTile.settingsLinkSize)
                     }
 
                     if !model.receiving {
@@ -199,7 +199,7 @@ struct SourcesSettingsPage: View {
                         subtitle: "Google Gmail, Microsoft Outlook / 365, iCloud, Yahoo, or any IMAP server",
                         page: AetherSettingsRoute.addAccount.rawValue
                     ) {
-                        AetherSymbolTile(symbol: "plus", color: .blue, size: DropletSettingsPageLink.tileSize)
+                        AetherSymbolTile(symbol: "plus", color: .blue, size: AetherSymbolTile.settingsLinkSize)
                     }
                 }
             }
@@ -213,7 +213,7 @@ struct SourcesSettingsPage: View {
                         subtitle: vaultSubtitle,
                         page: AetherSettingsRoute.bitwarden.rawValue
                     ) {
-                        AetherSymbolTile(symbol: "key.fill", color: .blue, size: DropletSettingsPageLink.tileSize)
+                        AetherSymbolTile(symbol: "key.fill", color: .blue, size: AetherSymbolTile.settingsLinkSize)
                     }
 
                     if model.hasVault {

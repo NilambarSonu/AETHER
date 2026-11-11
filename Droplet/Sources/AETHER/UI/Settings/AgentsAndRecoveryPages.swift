@@ -137,7 +137,7 @@ struct AgentsSettingsPage: View {
                         subtitle: rulesSubtitle,
                         page: AetherSettingsRoute.agentRules.rawValue
                     ) {
-                        AetherSymbolTile(symbol: "checkmark.shield.fill", color: .green, size: DropletSettingsPageLink.tileSize)
+                        AetherSymbolTile(symbol: "checkmark.shield.fill", color: .green, size: AetherSymbolTile.settingsLinkSize)
                     }
 
                     DropletSettingsPageLink(
@@ -145,7 +145,7 @@ struct AgentsSettingsPage: View {
                         subtitle: historySubtitle,
                         page: AetherSettingsRoute.agentHistory.rawValue
                     ) {
-                        AetherSymbolTile(symbol: "list.bullet.rectangle.portrait.fill", color: .indigo, size: DropletSettingsPageLink.tileSize)
+                        AetherSymbolTile(symbol: "list.bullet.rectangle.portrait.fill", color: .indigo, size: AetherSymbolTile.settingsLinkSize)
                     }
                 }
             }
@@ -373,7 +373,7 @@ struct RecoveryEmailsSettingsPage: View {
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
-                                Text("From: \(entry.message.senderDisplay)")
+                                Text("From: \(senderDisplay(for: entry.message))")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                                 Text(entry.message.text)
@@ -418,5 +418,11 @@ struct RecoveryEmailsSettingsPage: View {
                 hideFromCapture: model.isOn(AetherPrefs.hideFromCapture) && model.isUnlocked
             )
         )
+    }
+
+    private func senderDisplay(for message: IncomingMessage) -> String {
+        if message.senderName.isEmpty { return message.senderID }
+        if message.senderID.isEmpty || message.senderName == message.senderID { return message.senderName }
+        return "\(message.senderName) <\(message.senderID)>"
     }
 }

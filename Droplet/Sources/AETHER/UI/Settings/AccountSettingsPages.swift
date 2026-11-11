@@ -20,7 +20,7 @@ struct AddAccountSettingsPage: View {
                         subtitle: "Sign in securely with Google OAuth (read-only) or use an App Password",
                         page: AetherSettingsRoute.newAccount("gmail")
                     ) {
-                        AetherSymbolTile(symbol: "envelope.badge.fill", color: .red, size: DropletSettingsPageLink.tileSize)
+                        AetherSymbolTile(symbol: "envelope.badge.fill", color: .red, size: AetherSymbolTile.settingsLinkSize)
                     }
 
                     DropletSettingsPageLink(
@@ -28,7 +28,7 @@ struct AddAccountSettingsPage: View {
                         subtitle: "Sign in securely with Microsoft Graph OAuth (Mail.Read) or IMAP",
                         page: AetherSettingsRoute.newAccount("outlook")
                     ) {
-                        AetherSymbolTile(symbol: "envelope.fill", color: .blue, size: DropletSettingsPageLink.tileSize)
+                        AetherSymbolTile(symbol: "envelope.fill", color: .blue, size: AetherSymbolTile.settingsLinkSize)
                     }
                 }
             }
@@ -42,7 +42,7 @@ struct AddAccountSettingsPage: View {
                         subtitle: "Connect using an Apple ID app-specific password (imap.mail.me.com)",
                         page: AetherSettingsRoute.newAccount("icloud")
                     ) {
-                        AetherSymbolTile(symbol: "icloud.fill", color: .cyan, size: DropletSettingsPageLink.tileSize)
+                        AetherSymbolTile(symbol: "icloud.fill", color: .cyan, size: AetherSymbolTile.settingsLinkSize)
                     }
 
                     DropletSettingsPageLink(
@@ -50,7 +50,7 @@ struct AddAccountSettingsPage: View {
                         subtitle: "Connect using a Yahoo app password (imap.mail.yahoo.com)",
                         page: AetherSettingsRoute.newAccount("yahoo")
                     ) {
-                        AetherSymbolTile(symbol: "envelope.open.fill", color: .purple, size: DropletSettingsPageLink.tileSize)
+                        AetherSymbolTile(symbol: "envelope.open.fill", color: .purple, size: AetherSymbolTile.settingsLinkSize)
                     }
 
                     DropletSettingsPageLink(
@@ -58,7 +58,7 @@ struct AddAccountSettingsPage: View {
                         subtitle: "Connect to Fastmail, Proton Bridge, or any TLS IMAP server (port 993)",
                         page: AetherSettingsRoute.newAccount("imap")
                     ) {
-                        AetherSymbolTile(symbol: "server.rack", color: .gray, size: DropletSettingsPageLink.tileSize)
+                        AetherSymbolTile(symbol: "server.rack", color: .gray, size: AetherSymbolTile.settingsLinkSize)
                     }
                 }
             }

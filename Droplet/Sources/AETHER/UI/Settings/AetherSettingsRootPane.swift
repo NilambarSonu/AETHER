@@ -68,7 +68,7 @@ struct AetherSettingsRootPane: View {
                         subtitle: generalSubtitle,
                         page: AetherSettingsRoute.general.rawValue
                     ) {
-                        AetherSymbolTile(symbol: "gearshape.fill", color: .blue, size: DropletSettingsPageLink.tileSize)
+                        AetherSymbolTile(symbol: "gearshape.fill", color: .blue, size: AetherSymbolTile.settingsLinkSize)
                     }
 
                     DropletSettingsPageLink(
@@ -76,7 +76,7 @@ struct AetherSettingsRootPane: View {
                         subtitle: sourcesSubtitle,
                         page: AetherSettingsRoute.sources.rawValue
                     ) {
-                        AetherSymbolTile(symbol: "tray.2.fill", color: .orange, size: DropletSettingsPageLink.tileSize)
+                        AetherSymbolTile(symbol: "tray.2.fill", color: .orange, size: AetherSymbolTile.settingsLinkSize)
                     }
 
                     DropletSettingsPageLink(
@@ -84,7 +84,7 @@ struct AetherSettingsRootPane: View {
                         subtitle: privacySubtitle,
                         page: AetherSettingsRoute.privacy.rawValue
                     ) {
-                        AetherSymbolTile(symbol: "hand.raised.fill", color: .teal, size: DropletSettingsPageLink.tileSize)
+                        AetherSymbolTile(symbol: "hand.raised.fill", color: .teal, size: AetherSymbolTile.settingsLinkSize)
                     }
 
                     DropletSettingsPageLink(
@@ -92,7 +92,7 @@ struct AetherSettingsRootPane: View {
                         subtitle: agentsSubtitle,
                         page: AetherSettingsRoute.agents.rawValue
                     ) {
-                        AetherSymbolTile(symbol: "terminal.fill", color: .indigo, size: DropletSettingsPageLink.tileSize)
+                        AetherSymbolTile(symbol: "terminal.fill", color: .indigo, size: AetherSymbolTile.settingsLinkSize)
                     }
 
                     DropletSettingsPageLink(
@@ -100,7 +100,7 @@ struct AetherSettingsRootPane: View {
                         subtitle: recoverySubtitle,
                         page: AetherSettingsRoute.recovery.rawValue
                     ) {
-                        AetherSymbolTile(symbol: "envelope.badge.shield.half.filled", color: .purple, size: DropletSettingsPageLink.tileSize)
+                        AetherSymbolTile(symbol: "envelope.badge.shield.half.filled", color: .purple, size: AetherSymbolTile.settingsLinkSize)
                     }
                 }
             }

@@ -28,7 +28,7 @@ struct AetherMenuBarExtraView: View {
 
             if let issue = attentionSource {
                 Button {
-                    _ = droplet.openSettingsPage(
+                    droplet.openSettingsPage(
                         AetherSettingsRoute.sources.rawValue,
                         title: "Sources & accounts"
                     )
@@ -296,7 +296,7 @@ struct AetherMenuBarExtraView: View {
     private var footerBar: some View {
         HStack {
             Button("Recent Emails…") {
-                _ = droplet.openSettingsPage(
+                droplet.openSettingsPage(
                     AetherSettingsRoute.recovery.rawValue,
                     title: "Recent emails"
                 )

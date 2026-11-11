@@ -22,6 +22,22 @@ struct AetherShelfWidgetView: View {
     @Environment(\.dropletShelfWidgetTextColor) private var textColor
     @Environment(\.dropletWidgetIsVisible) private var isVisible
 
+    private var metrics: DroppyWidgetMetrics {
+        layout?.metrics ?? .single
+    }
+
+    private var primaryInk: Color {
+        textColor ?? layout?.foreground ?? .white
+    }
+
+    private var secondaryInk: Color {
+        primaryInk.opacity(0.82)
+    }
+
+    private var usesAdaptiveForegrounds: Bool {
+        layout?.usesAdaptiveForegrounds ?? false
+    }
+
     var body: some View {
         DropletWidgetComposition {
             singleView
@@ -45,11 +61,7 @@ struct AetherShelfWidgetView: View {
     }
 
     private var singleView: some View {
-        let resolved = layout ?? .standalone
-        let metrics = resolved.metrics
-        let ink = DroppyWidgetInk(layout: resolved, override: textColor)
-
-        return ShelfWidgetScaffold("AETHER", systemImage: "key.viewfinder") {
+        ShelfWidgetScaffold("AETHER", systemImage: "key.viewfinder") {
             Button(model.isUnlocked ? "Lock" : "Unlock", systemImage: model.isUnlocked ? "lock.fill" : "lock.open.fill") {
                 if model.isUnlocked {
                     model.vaultSession.lock()
@@ -66,7 +78,7 @@ struct AetherShelfWidgetView: View {
                 VStack(alignment: .leading, spacing: metrics.rowSpacing) {
                     if let attention = attentionSummary {
                         Button {
-                            _ = droplet.openSettingsPage(
+                            droplet.openSettingsPage(
                                 AetherSettingsRoute.sources.rawValue,
                                 title: "Sources & accounts"
                             )
@@ -76,12 +88,12 @@ struct AetherShelfWidgetView: View {
                                     .foregroundStyle(.orange)
                                 Text(verbatim: attention)
                                     .font(metrics.font(.caption))
-                                    .foregroundStyle(ink.primary)
+                                    .foregroundStyle(primaryInk)
                                     .lineLimit(1)
                                 Spacer(minLength: 4)
                                 Image(systemName: "chevron.right")
                                     .font(.caption2)
-                                    .foregroundStyle(ink.secondary)
+                                    .foregroundStyle(secondaryInk)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                         }
@@ -89,7 +101,7 @@ struct AetherShelfWidgetView: View {
                     }
 
                     if !model.isUnlocked {
-                        lockedContent(metrics: metrics, ink: ink, compact: false)
+                        lockedContent(compact: false)
                     } else {
                         let allItems = combinedItems(at: tickNow)
                         if allItems.count > 1 || !query.isEmpty {
@@ -97,7 +109,7 @@ struct AetherShelfWidgetView: View {
                         }
 
                         if allItems.isEmpty {
-                            emptyContent(metrics: metrics, ink: ink, compact: false)
+                            emptyContent(compact: false)
                         } else {
                             let displayed = query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                                 ? allItems
@@ -106,11 +118,11 @@ struct AetherShelfWidgetView: View {
                             if displayed.isEmpty {
                                 Text("No matches for \"\(query)\"")
                                     .font(metrics.font(.caption))
-                                    .foregroundStyle(ink.secondary)
+                                    .foregroundStyle(secondaryInk)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             } else {
                                 ShelfWidgetRows(displayed, id: \.id, maximumRows: 10, scrollsWhenSingle: true) { item in
-                                    widgetRow(item: item, now: tickNow, metrics: metrics, ink: ink, compact: false)
+                                    widgetRow(item: item, now: tickNow, compact: false)
                                 }
                             }
                         }
@@ -123,25 +135,21 @@ struct AetherShelfWidgetView: View {
     }
 
     private var splitView: some View {
-        let resolved = layout ?? .standalone
-        let metrics = resolved.metrics
-        let ink = DroppyWidgetInk(layout: resolved, override: textColor)
-
-        return ShelfWidgetScaffold("AETHER", systemImage: "key.viewfinder") {
+        ShelfWidgetScaffold("AETHER", systemImage: "key.viewfinder") {
             Button("Settings", systemImage: "gearshape") {
                 _ = droplet.openSettings()
             }
         } content: {
             DroppyWidgetTimeline(every: 1) { tickNow in
                 if !model.isUnlocked {
-                    lockedContent(metrics: metrics, ink: ink, compact: true)
+                    lockedContent(compact: true)
                 } else {
                     let allItems = combinedItems(at: tickNow)
                     if allItems.isEmpty {
-                        emptyContent(metrics: metrics, ink: ink, compact: true)
+                        emptyContent(compact: true)
                     } else {
                         ShelfWidgetRows(allItems, id: \.id, maximumRows: 2, scrollsWhenSingle: false) { item in
-                            widgetRow(item: item, now: tickNow, metrics: metrics, ink: ink, compact: true)
+                            widgetRow(item: item, now: tickNow, compact: true)
                         }
                     }
                 }
@@ -166,7 +174,7 @@ struct AetherShelfWidgetView: View {
         }
         controls.append(
             ShelfWidgetControl("Recent Emails", systemImage: "envelope.badge.shield.half.filled") {
-                _ = droplet.openSettingsPage(
+                droplet.openSettingsPage(
                     AetherSettingsRoute.recovery.rawValue,
                     title: "Recent emails"
                 )
@@ -174,7 +182,7 @@ struct AetherShelfWidgetView: View {
         )
         controls.append(
             ShelfWidgetControl("Sources", systemImage: "tray.2") {
-                _ = droplet.openSettingsPage(
+                droplet.openSettingsPage(
                     AetherSettingsRoute.sources.rawValue,
                     title: "Sources & accounts"
                 )
@@ -184,18 +192,17 @@ struct AetherShelfWidgetView: View {
     }
 
     @ViewBuilder
-    private func lockedContent(metrics: DroppyWidgetMetrics, ink: DroppyWidgetInk, compact: Bool) -> some View {
+    private func lockedContent(compact: Bool) -> some View {
         VStack(alignment: .leading, spacing: metrics.rowSpacing) {
             HStack(spacing: 8) {
                 Image(systemName: "lock.fill")
                     .foregroundStyle(.orange)
                 Text(model.latest != nil ? "Verification codes hidden while locked" : "AETHER is locked")
                     .font(metrics.font(.body))
-                    .foregroundStyle(ink.primary)
+                    .foregroundStyle(primaryInk)
                     .lineLimit(compact ? 2 : 1)
             }
             if !compact {
-                let resolved = layout ?? .standalone
                 Button("Unlock to View Codes") {
                     model.unlocked {}
                 }
@@ -203,7 +210,7 @@ struct AetherShelfWidgetView: View {
                     DroppyWashPillButtonStyle(
                         height: 28,
                         tone: .accent(.blue),
-                        usesAdaptiveForegrounds: resolved.usesAdaptiveForegrounds
+                        usesAdaptiveForegrounds: usesAdaptiveForegrounds
                     )
                 )
             }
@@ -211,16 +218,16 @@ struct AetherShelfWidgetView: View {
     }
 
     @ViewBuilder
-    private func emptyContent(metrics: DroppyWidgetMetrics, ink: DroppyWidgetInk, compact: Bool) -> some View {
+    private func emptyContent(compact: Bool) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(model.receiving ? "Waiting for verification codes" : "Monitoring paused")
                 .font(metrics.font(.body))
-                .foregroundStyle(ink.primary)
+                .foregroundStyle(primaryInk)
                 .lineLimit(1)
             if !compact {
                 Text(model.receiving ? "Codes from Messages, Mail, and Bitwarden appear here." : "Enable sources in Droppy → Settings → AETHER.")
                     .font(metrics.font(.caption))
-                    .foregroundStyle(ink.secondary)
+                    .foregroundStyle(secondaryInk)
                     .lineLimit(2)
             }
         }
@@ -230,8 +237,6 @@ struct AetherShelfWidgetView: View {
     private func widgetRow(
         item: CodeItem,
         now: Date,
-        metrics: DroppyWidgetMetrics,
-        ink: DroppyWidgetInk,
         compact: Bool
     ) -> some View {
         let concealed = blurCodes && hoveredID != item.id
@@ -246,20 +251,20 @@ struct AetherShelfWidgetView: View {
                     HStack(spacing: 5) {
                         Text(verbatim: item.service)
                             .font(metrics.font(.body))
-                            .foregroundStyle(ink.primary)
+                            .foregroundStyle(primaryInk)
                             .lineLimit(1)
                         let origin = model.origination(item)
                         if !compact && !origin.isEmpty {
                             Text(verbatim: origin)
                                 .font(metrics.font(.caption))
-                                .foregroundStyle(ink.secondary)
+                                .foregroundStyle(secondaryInk)
                                 .lineLimit(1)
                         }
                     }
                     if !compact && showPreviews && !item.preview.isEmpty {
                         Text(verbatim: item.preview)
                             .font(metrics.font(.caption))
-                            .foregroundStyle(ink.secondary)
+                            .foregroundStyle(secondaryInk)
                             .lineLimit(1)
                     }
                 }
@@ -281,7 +286,7 @@ struct AetherShelfWidgetView: View {
                                 concealed: concealed,
                                 fontSize: compact ? 13 : 15
                             )
-                            .foregroundStyle(ink.primary)
+                            .foregroundStyle(primaryInk)
                         }
                         if item.expires > now {
                             AetherExpiryRing(item: item, now: now, size: compact ? 12 : 14)

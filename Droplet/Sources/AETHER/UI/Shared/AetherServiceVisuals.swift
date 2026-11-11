@@ -3,9 +3,12 @@
 
 import AetherEngine
 import CodeCatchCore
+import DroppyKit
 import SwiftUI
 
 struct AetherSymbolTile: View {
+    static var settingsLinkSize: CGFloat { DropletSettingsPageLink<AnyView>.tileSize }
+
     let symbol: String
     let color: Color
     var size: CGFloat = 22
@@ -176,7 +179,7 @@ struct AetherWarningRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: calm ? "info.circle.fill" : "exclamationmark.triangle.fill")
-                .foregroundStyle(calm ? .secondary : .orange)
+                .foregroundStyle(calm ? Color.secondary : Color.orange)
             Text(verbatim: message)
                 .font(.caption)
                 .foregroundStyle(calm ? .secondary : .primary)
