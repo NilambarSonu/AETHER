@@ -351,46 +351,66 @@ struct RecoveryEmailsSettingsPage: View {
     var body: some View {
         DropletSettingsPage {
             DropletSettingsSection {
-                settingsSectionHeader("Unmatched recent emails")
+                settingsSectionHeader("Unmatched emails")
             } content: {
-                DropletSettingsCard {
-                    if !model.isUnlocked {
-                        AetherSettingsControlRow(
-                            title: "Recovery inbox locked",
-                            subtitle: "Unmatched emails from the last 30 minutes stay locked behind Touch ID.",
+                if !model.isUnlocked {
+                    DropletSettingsCard {
+                        DropletControlRow(
+                            title: "Inbox locked",
                             icon: "lock.fill",
-                            iconColor: .orange
+                            iconColor: .orange,
+                            infoTip: "Unmatched emails stay locked behind Touch ID."
                         ) {
                             Button("Unlock…") {
                                 model.unlocked {}
                             }
                             .buttonStyle(.borderedProminent)
+                            .controlSize(.small)
                         }
-                    } else if model.recovery.entries.isEmpty {
-                        AetherWarningRow(
-                            message: "No unmatched code-context emails from the last 30 minutes are currently held in memory.",
-                            calm: true
-                        )
-                    } else {
+                    }
+                } else if model.recovery.entries.isEmpty {
+                    VStack(spacing: DroppySpacing.md) {
+                        Image(systemName: "envelope.open")
+                            .font(.system(size: 36, weight: .light))
+                            .foregroundStyle(.tertiary)
+
+                        Text("Nothing to review")
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+
+                        Text("Emails that looked like codes but didn't match are held in memory for 30 minutes.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: 320)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, DroppySpacing.xxxl)
+                } else {
+                    DropletSettingsCard {
                         ForEach(model.recovery.entries) { entry in
-                            VStack(alignment: .leading, spacing: 8) {
+                            VStack(alignment: .leading, spacing: DroppySpacing.xs) {
                                 HStack(alignment: .firstTextBaseline) {
                                     Text(entry.message.subject ?? "No Subject")
-                                        .font(.headline)
+                                        .font(.body)
+                                        .fontWeight(.medium)
+                                        .lineLimit(1)
                                     Spacer()
                                     Text(entry.message.date.formatted(.relative(presentation: .named)))
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
-                                Text("From: \(senderDisplay(for: entry.message))")
+                                Text(senderDisplay(for: entry.message))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
+                                    .lineLimit(1)
                                 Text(entry.message.text)
                                     .font(.callout)
+                                    .foregroundStyle(.secondary)
                                     .textSelection(.enabled)
-                                    .lineLimit(8)
+                                    .lineLimit(4)
                                 HStack {
-                                    Button(copiedID == entry.id ? "Copied" : "Copy Email Text") {
+                                    Button(copiedID == entry.id ? "Copied" : "Copy email text") {
                                         if model.copyRecoveryText(entry.message.fullText, from: entry.id) {
                                             copiedID = entry.id
                                             Task {
@@ -404,24 +424,16 @@ struct RecoveryEmailsSettingsPage: View {
 
                                     Spacer()
                                 }
+                                .padding(.top, 2)
                             }
-                            .padding(.vertical, 6)
-                        }
-
-                        AetherSettingsControlRow(
-                            title: "Clear recovery emails",
-                            icon: "trash.fill",
-                            iconColor: .gray
-                        ) {
-                            Button("Clear All") {
-                                model.recovery.removeAll()
-                            }
-                            .buttonStyle(.bordered)
+                            .padding(.horizontal, DroppySettingsLayoutMetrics.rowPadding)
+                            .padding(.vertical, DroppySettingsLayoutMetrics.rowVerticalPadding)
                         }
                     }
                 }
             }
         }
+        .navigationTitle("Unmatched emails")
         .background(
             AetherScopedCaptureGuard(
                 hideFromCapture: model.isOn(AetherPrefs.hideFromCapture) && model.isUnlocked
