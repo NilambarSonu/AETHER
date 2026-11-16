@@ -9,263 +9,239 @@ struct SourcesSettingsPage: View {
     @ObservedObject var droplet: AetherDroplet
     @ObservedObject var model: AetherAppModel
 
-    @State private var expandedSourceKey: String?
-
     private var messagesEnabled: Bool { model.isOn(AetherPrefs.messages) }
     private var appleMailEnabled: Bool { model.isOn(AetherPrefs.appleMail) }
 
     var body: some View {
         DropletSettingsPage {
             DropletSettingsSection {
-                settingsSectionHeader("What to catch")
+                settingsSectionHeader("Local")
             } content: {
                 DropletSettingsCard {
-                    AetherSettingsToggleRow(
-                        title: "Verification codes",
-                        subtitle: "Detects numeric and alphanumeric OTPs in Messages and email.",
-                        icon: "number",
-                        iconColor: .blue,
-                        isOn: setting(AetherPrefs.receivedCodes)
-                    )
+                    HStack(alignment: .center, spacing: DroppySpacing.md) {
+                        Image(systemName: "message.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Color.green)
+                            .frame(width: 20, alignment: .center)
+                            .accessibilityHidden(true)
 
-                    AetherSettingsToggleRow(
-                        title: "Sign-in links",
-                        subtitle: "Detects magic login links in email (never auto-copied).",
-                        icon: "link",
-                        iconColor: .teal,
-                        isOn: setting(AetherPrefs.signInLinks)
-                    )
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Messages")
+                                .font(.body)
+                                .foregroundStyle(.primary)
 
-                    AetherSettingsToggleRow(
-                        title: "Password reset links",
-                        subtitle: "Flags password reset links locally; strictly blocked from AI agents.",
-                        icon: "lock.rotation",
-                        iconColor: .orange,
-                        isOn: setting(AetherPrefs.resetLinks)
-                    )
+                            Text("iMessage & SMS · \(messagesEnabled ? "Watching" : "Off")")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
 
-                    if !model.receiving {
-                        AetherWarningRow(
-                            message: "Messages and mail monitoring are paused while all three options above are off.",
-                            calm: true
-                        )
+                        Spacer(minLength: 8)
+
+                        Toggle("", isOn: model.boolBinding(AetherPrefs.messages))
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .controlSize(.small)
+                            .onChange(of: messagesEnabled) { _, _ in
+                                model.restartMessages()
+                            }
+                    }
+                    .padding(.horizontal, DroppySettingsLayoutMetrics.rowPadding)
+                    .padding(.vertical, DroppySettingsLayoutMetrics.rowVerticalPadding)
+
+                    HStack(alignment: .center, spacing: DroppySpacing.md) {
+                        Image(systemName: "tray.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Color.blue)
+                            .frame(width: 20, alignment: .center)
+                            .accessibilityHidden(true)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Apple Mail")
+                                .font(.body)
+                                .foregroundStyle(.primary)
+
+                            Text(appleMailEnabled ? "Watching" : "Off")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer(minLength: 8)
+
+                        Toggle("", isOn: model.boolBinding(AetherPrefs.appleMail))
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .controlSize(.small)
+                            .onChange(of: appleMailEnabled) { _, _ in
+                                model.restartAppleMail()
+                            }
+                    }
+                    .padding(.horizontal, DroppySettingsLayoutMetrics.rowPadding)
+                    .padding(.vertical, DroppySettingsLayoutMetrics.rowVerticalPadding)
+                }
+            }
+
+            DropletSettingsSection {
+                settingsSectionHeader("Mail accounts")
+            } content: {
+                DropletSettingsCard {
+                    if model.accounts.isEmpty {
+                        HStack(alignment: .center, spacing: DroppySpacing.md) {
+                            Image(systemName: "tray")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 20, alignment: .center)
+                                .accessibilityHidden(true)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("No accounts connected")
+                                    .font(.body)
+                                    .foregroundStyle(.primary)
+
+                                Text("Add a mailbox to catch codes from email.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer(minLength: 8)
+
+                            Button("Add account") {
+                                droplet.openSettingsPage(AetherSettingsRoute.addAccount.rawValue, title: "Add mail account")
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
+                        .padding(.horizontal, DroppySettingsLayoutMetrics.rowPadding)
+                        .padding(.vertical, DroppySettingsLayoutMetrics.rowVerticalPadding)
+                    } else {
+                        ForEach(model.accounts) { account in
+                            ConnectedAccountRow(
+                                account: account,
+                                model: model,
+                                onEdit: {
+                                    droplet.openSettingsPage(AetherSettingsRoute.editAccount(account.id), title: "Edit mail account")
+                                },
+                                onSignInAgain: {
+                                    droplet.openSettingsPage(AetherSettingsRoute.editAccount(account.id), title: "Edit mail account")
+                                }
+                            )
+                        }
+
+                        DropletControlRow(
+                            title: "Add account…",
+                            icon: "plus",
+                            iconColor: .blue
+                        ) {
+                            Button("Add…") {
+                                droplet.openSettingsPage(AetherSettingsRoute.addAccount.rawValue, title: "Add mail account")
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
+                    }
+
+                    DropletToggleRow(
+                        title: "Include spam and junk",
+                        icon: "tray.and.arrow.down.fill",
+                        iconColor: .secondary,
+                        subtitle: "Also checks Gmail Spam and Outlook Junk.",
+                        isOn: model.boolBinding(AetherPrefs.includeJunkMail)
+                    )
+                    .onChange(of: model.isOn(AetherPrefs.includeJunkMail)) { _, _ in
+                        model.restartMail()
                     }
                 }
             }
 
             DropletSettingsSection {
-                settingsSectionHeader("Filtering rules")
+                settingsSectionHeader("Authenticator")
+            } content: {
+                DropletSettingsCard {
+                    DropletControlRow(
+                        title: "Bitwarden",
+                        icon: "shield.lefthalf.filled",
+                        iconColor: .blue,
+                        infoTip: "Import authenticator codes with the Bitwarden CLI."
+                    ) {
+                        HStack(spacing: DroppySpacing.sm) {
+                            DropletValuePill(text: model.hasVault ? "Connected" : "Not connected")
+                            Button(model.hasVault ? "Configure…" : "Connect…") {
+                                droplet.openSettingsPage(AetherSettingsRoute.bitwarden.rawValue, title: "Bitwarden")
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
+                    }
+                }
+            }
+
+            DropletSettingsSection {
+                settingsSectionHeader("What to detect")
+            } content: {
+                DropletSettingsCard {
+                    DropletToggleRow(
+                        title: "Verification codes",
+                        icon: "number",
+                        iconColor: .blue,
+                        subtitle: "Numeric and alphanumeric.",
+                        isOn: model.boolBinding(AetherPrefs.receivedCodes)
+                    )
+
+                    DropletToggleRow(
+                        title: "Sign-in links",
+                        icon: "link",
+                        iconColor: .teal,
+                        subtitle: "Never copied automatically.",
+                        isOn: model.boolBinding(AetherPrefs.signInLinks)
+                    )
+
+                    DropletToggleRow(
+                        title: "Password reset links",
+                        icon: "lock.rotation",
+                        iconColor: .orange,
+                        subtitle: "Flagged on this Mac. Never shared with AI agents.",
+                        isOn: model.boolBinding(AetherPrefs.resetLinks)
+                    )
+                }
+            }
+
+            DropletSettingsSection {
+                settingsSectionHeader("Filters")
             } content: {
                 DropletSettingsCard {
                     DropletSettingsPageLink(
                         "Ignored senders",
-                        subtitle: ignoredSummary,
+                        subtitle: model.ignoredSenders.isEmpty ? "None" : "\(model.ignoredSenders.count) \(model.ignoredSenders.count == 1 ? "sender" : "senders")",
                         page: AetherSettingsRoute.ignoredSenders.rawValue
                     ) {
-                        AetherSettingsIconBadge(
-                            symbol: "nosign",
-                            top: Color(white: 0.45),
-                            bottom: Color(white: 0.28),
-                            size: AetherSymbolTile.settingsLinkSize
-                        )
+                        Image(systemName: "nosign")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.secondary)
                     }
 
                     DropletSettingsPageLink(
-                        "Not a code rules",
-                        subtitle: notCodeSummary,
+                        "Not-a-code rules",
+                        subtitle: model.notCodes.isEmpty ? "None" : "\(model.notCodes.count) \(model.notCodes.count == 1 ? "rule" : "rules")",
                         page: AetherSettingsRoute.notCodes.rawValue
                     ) {
-                        AetherSettingsIconBadge(
-                            symbol: "xmark.seal.fill",
-                            top: Color(red: 0.56, green: 0.58, blue: 0.64),
-                            bottom: Color(red: 0.36, green: 0.38, blue: 0.44),
-                            size: AetherSymbolTile.settingsLinkSize
-                        )
+                        Image(systemName: "xmark.seal.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.secondary)
                     }
                 }
             }
 
             DropletSettingsSection {
-                settingsSectionHeader("Messages & Apple Mail")
-            } content: {
-                DropletSettingsCard {
-                    let msgStatus = model.status[MessagesStore.sourceKey] ?? .off
-                    let codesOn = model.isOn(AetherPrefs.receivedCodes)
-                    AetherSettingsControlRow(
-                        title: "Messages",
-                        subtitle: codesOn ? "iMessage & SMS · \(msgStatus.summary)" : "Paused while Verification codes is off",
-                        icon: "message.fill",
-                        iconColor: .green,
-                        infoTip: "Reads ~/Library/Messages/chat.db strictly read-only using Droppy's Full Disk Access."
-                    ) {
-                        HStack(spacing: 8) {
-                            AetherSourceStatusDot(status: msgStatus)
-                            Button {
-                                toggleHealth(MessagesStore.sourceKey)
-                            } label: {
-                                Image(systemName: expandedSourceKey == MessagesStore.sourceKey ? "chevron.up" : "info.circle")
-                            }
-                            .buttonStyle(.borderless)
-                            Toggle("Messages", isOn: model.boolBinding(AetherPrefs.messages))
-                                .labelsHidden()
-                                .toggleStyle(.switch)
-                                .controlSize(.small)
-                                .onChange(of: messagesEnabled) { _, _ in model.restartMessages() }
-                        }
-                    }
-
-                    if expandedSourceKey == MessagesStore.sourceKey {
-                        sourceHealthPanel(
-                            key: MessagesStore.sourceKey,
-                            enabled: messagesEnabled && codesOn,
-                            description: "Reads iMessage and forwarded SMS via FSEvents without copying chat.db."
-                        )
-                    }
-
-                    if messagesEnabled && msgStatus.needsDiskAccess {
-                        diskAccessRow
-                    }
-
-                    let mailStatus = model.status[AppleMailStore.sourceKey] ?? .off
-                    AetherSettingsControlRow(
-                        title: "Apple Mail",
-                        subtitle: "Local Mailboxes · \(mailStatus.summary)",
-                        icon: "tray.fill",
-                        iconColor: .cyan,
-                        topColor: .blue,
-                        infoTip: "Reads Mail.app inboxes strictly read-only without changing unread badges."
-                    ) {
-                        HStack(spacing: 8) {
-                            AetherSourceStatusDot(status: mailStatus)
-                            Button {
-                                toggleHealth(AppleMailStore.sourceKey)
-                            } label: {
-                                Image(systemName: expandedSourceKey == AppleMailStore.sourceKey ? "chevron.up" : "info.circle")
-                            }
-                            .buttonStyle(.borderless)
-                            Toggle("Apple Mail", isOn: model.boolBinding(AetherPrefs.appleMail))
-                                .labelsHidden()
-                                .toggleStyle(.switch)
-                                .controlSize(.small)
-                                .onChange(of: appleMailEnabled) { _, _ in model.restartAppleMail() }
-                        }
-                    }
-
-                    if expandedSourceKey == AppleMailStore.sourceKey {
-                        sourceHealthPanel(
-                            key: AppleMailStore.sourceKey,
-                            enabled: appleMailEnabled && model.receiving,
-                            description: "Reads downloaded .emlx bodies in ~/Library/Mail without altering state."
-                        )
-                    }
-
-                    if appleMailEnabled && mailStatus.needsDiskAccess {
-                        diskAccessRow
-                    }
-                }
-            }
-
-            DropletSettingsSection {
-                settingsSectionHeader("Cloud & IMAP mailboxes")
-            } content: {
-                if !model.accounts.isEmpty {
-                    DropletSettingsCard {
-                        ForEach(model.accounts) { account in
-                            let key = account.id.uuidString
-                            let accStatus = model.status[key] ?? .off
-                            let style = accountBadgeStyle(for: account)
-                            AetherSettingsControlRow(
-                                title: account.label,
-                                subtitle: "\(account.user) · \(accStatus.summary)",
-                                icon: style.symbol,
-                                iconColor: style.bottom,
-                                topColor: style.top,
-                                infoTip: "Credentials sealed with AES-256-GCM in macOS Keychain. Never modifies unread status."
-                            ) {
-                                HStack(spacing: 8) {
-                                    AetherSourceStatusDot(status: accStatus)
-                                    Button("Edit…") {
-                                        droplet.openSettingsPage(
-                                            AetherSettingsRoute.editAccount(account.id),
-                                            title: account.label
-                                        )
-                                    }
-                                    .buttonStyle(.bordered)
-                                    .controlSize(.small)
-                                    Toggle(
-                                        "Watch \(account.label)",
-                                        isOn: Binding(
-                                            get: { account.enabled },
-                                            set: { enabled in
-                                                var updated = account
-                                                updated.enabled = enabled
-                                                model.save(updated)
-                                            }
-                                        )
-                                    )
-                                    .labelsHidden()
-                                    .toggleStyle(.switch)
-                                    .controlSize(.small)
-                                }
-                            }
-                        }
-                    }
-                }
-
-                DropletSettingsCard {
-                    DropletSettingsPageLink(
-                        "Add mail account…",
-                        subtitle: "Google Gmail, Microsoft Outlook / 365, iCloud, Yahoo, or any IMAP server",
-                        page: AetherSettingsRoute.addAccount.rawValue
-                    ) {
-                        AetherSettingsIconBadge(
-                            symbol: "plus",
-                            top: Color(red: 0.20, green: 0.56, blue: 1.00),
-                            bottom: Color(red: 0.08, green: 0.36, blue: 0.88),
-                            size: AetherSymbolTile.settingsLinkSize
-                        )
-                    }
-                }
-
-                DropletSettingsCard {
-                    AetherSettingsToggleRow(
-                        title: "Include Spam / Junk folders",
-                        subtitle: "Also watches Gmail Spam & Outlook Junk for legitimate codes.",
-                        icon: "tray.and.arrow.down.fill",
-                        iconColor: .orange,
-                        infoTip: "Off by default. Unverified DMARC messages from Spam/Junk require manual click to copy.",
-                        isOn: setting(AetherPrefs.includeJunkMail)
-                    )
-                }
-            }
-
-            DropletSettingsSection {
-                settingsSectionHeader("Bitwarden")
+                settingsSectionHeader("Troubleshooting")
             } content: {
                 DropletSettingsCard {
                     DropletSettingsPageLink(
-                        "Bitwarden authenticator",
-                        subtitle: vaultSubtitle,
-                        page: AetherSettingsRoute.bitwarden.rawValue
+                        "Unmatched emails",
+                        subtitle: recoverySummary,
+                        page: AetherSettingsRoute.recovery.rawValue
                     ) {
-                        AetherSettingsIconBadge(
-                            symbol: "key.fill",
-                            top: Color(red: 0.14, green: 0.48, blue: 0.96),
-                            bottom: Color(red: 0.06, green: 0.30, blue: 0.78),
-                            size: AetherSymbolTile.settingsLinkSize
-                        )
-                    }
-                }
-
-                if model.hasVault {
-                    DropletSettingsCard {
-                        AetherSettingsToggleRow(
-                            title: "Enable Bitwarden TOTP codes",
-                            subtitle: "Generates local 2FA codes from encrypted Keychain secrets.",
-                            icon: "lock.shield.fill",
-                            iconColor: .blue,
-                            isOn: setting(AetherPrefs.bitwarden)
-                        )
+                        Image(systemName: "envelope.badge.shield.half.filled")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.secondary)
                     }
                 }
             }
@@ -273,105 +249,9 @@ struct SourcesSettingsPage: View {
         .background(AetherWindowAnchorReader())
     }
 
-    private func accountBadgeStyle(for account: MailAccount) -> (symbol: String, top: Color, bottom: Color) {
-        if account.isGmail {
-            return ("envelope.badge.fill", Color(red: 0.94, green: 0.28, blue: 0.26), Color(red: 0.78, green: 0.14, blue: 0.14))
-        }
-        if account.isOutlook {
-            return ("envelope.fill", Color(red: 0.12, green: 0.58, blue: 0.96), Color(red: 0.04, green: 0.38, blue: 0.82))
-        }
-        if account.host.lowercased().contains("icloud") {
-            return ("icloud.fill", Color(red: 0.24, green: 0.76, blue: 0.98), Color(red: 0.10, green: 0.54, blue: 0.86))
-        }
-        if account.host.lowercased().contains("yahoo") {
-            return ("envelope.open.fill", Color(red: 0.60, green: 0.24, blue: 0.90), Color(red: 0.42, green: 0.12, blue: 0.74))
-        }
-        return ("server.rack", Color(white: 0.46), Color(white: 0.30))
-    }
-
-    private var diskAccessRow: some View {
-        AetherSettingsControlRow(
-            title: "Full Disk Access required",
-            subtitle: "Grant Full Disk Access to Droppy in System Settings.",
-            icon: "lock.shield.fill",
-            iconColor: .orange
-        ) {
-            Button("Allow…") {
-                droplet.openFullDiskAccessSettings()
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.small)
-        }
-    }
-
-    private func sourceHealthPanel(key: String, enabled: Bool, description: String) -> some View {
-        let h = model.monitor.health[key] ?? SourceHealth()
-        return VStack(alignment: .leading, spacing: 6) {
-            Text(description)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            HStack(spacing: 14) {
-                Text("Checked: \(relative(h.lastChecked))")
-                if let latency = h.lastLatencyMs {
-                    Text("Latency: \(latency) ms")
-                }
-                Text("Last message: \(relative(h.lastMessage))")
-                Text("Last code: \(relative(h.lastCode))")
-            }
-            .font(.caption2)
-            .foregroundStyle(.secondary)
-            if let retryAt = h.retryAt {
-                Text("Retrying in \(max(0, Int(ceil(retryAt.timeIntervalSince(model.now)))))s")
-                    .font(.caption2)
-                    .foregroundStyle(.orange)
-            }
-            Button("Check Now") {
-                model.monitor.check(key)
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            .disabled(!enabled)
-        }
-        .padding(.vertical, 4)
-    }
-
-    private func relative(_ date: Date?) -> String {
-        guard let date else { return "not yet" }
-        if model.now.timeIntervalSince(date) < 1 { return "just now" }
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .short
-        return formatter.localizedString(for: date, relativeTo: model.now)
-    }
-
-    private func toggleHealth(_ key: String) {
-        expandedSourceKey = expandedSourceKey == key ? nil : key
-    }
-
-    private func setting(_ key: String) -> Binding<Bool> {
-        Binding(get: { model.isOn(key) }, set: { model.set(key, on: $0) })
-    }
-
-    private var ignoredSummary: String {
-        switch model.ignoredSenders.count {
-        case 0: "None"
-        case 1: "1 sender"
-        case let count: "\(count) senders"
-        }
-    }
-
-    private var notCodeSummary: String {
-        switch model.notCodes.count {
-        case 0: "None"
-        case 1: "1 rule"
-        case let count: "\(count) rules"
-        }
-    }
-
-    private var vaultSubtitle: String {
-        guard model.hasVault else { return "Import encrypted TOTP seeds via Bitwarden CLI" }
-        guard model.isOn(AetherPrefs.bitwarden) else { return "Off · encrypted keys preserved" }
-        let state = model.vaultSession.isUnlocked ? "\(model.vault.count) codes" : "Locked"
-        guard let imported = model.defaults.object(forKey: AetherPrefs.vaultImportedAt) as? Date else { return state }
-        return "\(state) · imported \(imported.formatted(.relative(presentation: .named)))"
+    private var recoverySummary: String {
+        guard model.isUnlocked else { return "Locked" }
+        let count = model.recovery.entries.count
+        return count == 0 ? "None" : "\(count) \(count == 1 ? "email" : "emails")"
     }
 }

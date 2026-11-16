@@ -184,17 +184,12 @@ public final class AetherDroplet:
 
     public func makeSettingsPageToolbar(id: String, context: SettingsPaneContext) -> AnyView? {
         switch AetherSettingsRoute(rawValue: id) {
-        case .sources:
-            return AnyView(
-                DropletSettingsToolbarButton("Add Account", systemImage: "plus") { [weak self] in
-                    self?.openSettingsPage(AetherSettingsRoute.addAccount.rawValue, title: "Add mail account")
-                }
-            )
         case .recovery:
             return AnyView(
                 DropletSettingsToolbarButton("Clear", systemImage: "trash") { [weak self] in
                     self?.model.recovery.removeAll()
                 }
+                .disabled(model.recovery.entries.isEmpty)
             )
         case .agentHistory:
             return AnyView(
