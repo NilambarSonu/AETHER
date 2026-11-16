@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.2.1] - 2026-11-16
+
+- **Eliminated Double Notch Notification:** Re-architected code delivery routing to prioritize Notch HUD over notification banners (`AetherAppModel.swift`), eliminating duplicate notification popups and removing the generic blue mail banner.
+- **Single-Line Subtitle Heuristics (`AetherSubtitleFormatter`):** Stripped technical sender noise (`no-reply@...`), raw OTP digits, and redundant service prefixes, displaying crisp, single-line human intent ("Password reset request", "Checking application / appeal status", "Refund of ₹348.10") across Notch HUD cards, Shelf widgets, and Menu Bar popovers.
+- **Expanded Brand Icon Catalog & Fallback Monograms:** Added direct HTTPS `/favicon.ico` resolution to `AetherIconStore` and populated `AetherBrandCatalog` with Indian government portals (`odishaone.gov.in`, `digilocker.gov.in`, `uidai.gov.in`, `irctc.co.in`, `*.gov.in`), Indian and global fintech (`phonepe`, `paytm`, `cred`, `razorpay`, `groww`, `zerodha`, `hdfc`, `icici`, `sbi`), food/delivery (`swiggy`, `zomato`, `zepto`, `blinkit`, `flipkart`), and `saathiai.org`. Upgraded fallback monograms with two-letter initials and continuous squircle glass styling.
+- **Widget Icon Line Weight Harmonization:** Rebalanced stroke width of `leon-urlcleaner-svgrepo-com.svg` (`stroke-width="3.5"`) to visually match `refresh-ccw` and `settings-2` in the Shelf widget.
+- **Competitive Architecture Audit:** Authored in-depth engineering audit comparing AETHER against MessAuto and 2fhey (`docs/COMPETITIVE-AUDIT-MESSAUTO-2FHEY.md`).
+
 ## [2.2.0] - 2026-11-11
 
 - Embedded verified first-party AETHER Google OAuth iOS Client ID and Microsoft Entra public Client ID directly into the droplet alongside one-click OAuth setup and Keychain-sealed custom overrides.

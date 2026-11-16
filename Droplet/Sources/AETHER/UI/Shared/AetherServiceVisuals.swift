@@ -383,6 +383,186 @@ enum AetherBrandCatalog {
                 foreground: .white
             )
         }
+        if key.contains("odisha") || key.contains("rtiodisha") {
+            return Style(
+                topColor: Color(red: 0.05, green: 0.42, blue: 0.85),
+                bottomColor: Color(red: 0.02, green: 0.22, blue: 0.58),
+                markText: nil,
+                symbol: "building.columns.fill",
+                foreground: .white
+            )
+        }
+        if key.contains("saathi") {
+            return Style(
+                topColor: Color(red: 0.16, green: 0.72, blue: 0.40),
+                bottomColor: Color(red: 0.08, green: 0.52, blue: 0.28),
+                markText: nil,
+                symbol: "leaf.fill",
+                foreground: .white
+            )
+        }
+        if key.contains("digilocker") {
+            return Style(
+                topColor: Color(red: 0.08, green: 0.48, blue: 0.95),
+                bottomColor: Color(red: 0.02, green: 0.28, blue: 0.72),
+                markText: nil,
+                symbol: "lock.shield.fill",
+                foreground: .white
+            )
+        }
+        if key.contains("uidai") || key.contains("aadhaar") {
+            return Style(
+                topColor: Color(red: 0.95, green: 0.45, blue: 0.10),
+                bottomColor: Color(red: 0.80, green: 0.20, blue: 0.10),
+                markText: nil,
+                symbol: "person.text.rectangle.fill",
+                foreground: .white
+            )
+        }
+        if key.contains("irctc") {
+            return Style(
+                topColor: Color(red: 0.12, green: 0.38, blue: 0.75),
+                bottomColor: Color(red: 0.05, green: 0.20, blue: 0.52),
+                markText: nil,
+                symbol: "tram.fill",
+                foreground: .white
+            )
+        }
+        if key.contains("gov.") || key.hasSuffix(".gov.in") || key.hasSuffix(".nic.in") || key.hasSuffix(".gov") {
+            return Style(
+                topColor: Color(red: 0.15, green: 0.28, blue: 0.52),
+                bottomColor: Color(red: 0.08, green: 0.16, blue: 0.36),
+                markText: nil,
+                symbol: "building.columns.fill",
+                foreground: .white
+            )
+        }
+        if key.contains("phonepe") {
+            return Style(
+                topColor: Color(red: 0.42, green: 0.16, blue: 0.75),
+                bottomColor: Color(red: 0.28, green: 0.08, blue: 0.56),
+                markText: "पे",
+                symbol: nil,
+                foreground: .white
+            )
+        }
+        if key.contains("paytm") {
+            return Style(
+                topColor: Color(red: 0.05, green: 0.65, blue: 0.95),
+                bottomColor: Color(red: 0.00, green: 0.42, blue: 0.75),
+                markText: "Paytm",
+                symbol: nil,
+                foreground: .white
+            )
+        }
+        if key.contains("cred") {
+            return Style(
+                topColor: Color(red: 0.20, green: 0.20, blue: 0.22),
+                bottomColor: Color(red: 0.08, green: 0.08, blue: 0.10),
+                markText: "CRED",
+                symbol: nil,
+                foreground: .white
+            )
+        }
+        if key.contains("razorpay") {
+            return Style(
+                topColor: Color(red: 0.10, green: 0.46, blue: 0.95),
+                bottomColor: Color(red: 0.02, green: 0.26, blue: 0.72),
+                markText: "R",
+                symbol: nil,
+                foreground: .white
+            )
+        }
+        if key.contains("groww") {
+            return Style(
+                topColor: Color(red: 0.08, green: 0.74, blue: 0.58),
+                bottomColor: Color(red: 0.02, green: 0.54, blue: 0.42),
+                markText: nil,
+                symbol: "chart.line.uptrend.xyaxis",
+                foreground: .white
+            )
+        }
+        if key.contains("zerodha") || key.contains("kite") {
+            return Style(
+                topColor: Color(red: 0.18, green: 0.55, blue: 0.98),
+                bottomColor: Color(red: 0.08, green: 0.38, blue: 0.82),
+                markText: nil,
+                symbol: "arrow.up.right",
+                foreground: .white
+            )
+        }
+        if key.contains("swiggy") {
+            return Style(
+                topColor: Color(red: 0.98, green: 0.48, blue: 0.12),
+                bottomColor: Color(red: 0.86, green: 0.32, blue: 0.04),
+                markText: nil,
+                symbol: "bag.fill",
+                foreground: .white
+            )
+        }
+        if key.contains("zomato") {
+            return Style(
+                topColor: Color(red: 0.92, green: 0.18, blue: 0.22),
+                bottomColor: Color(red: 0.72, green: 0.08, blue: 0.12),
+                markText: "Z",
+                symbol: nil,
+                foreground: .white
+            )
+        }
+        if key.contains("blinkit") {
+            return Style(
+                topColor: Color(red: 0.98, green: 0.78, blue: 0.08),
+                bottomColor: Color(red: 0.12, green: 0.54, blue: 0.24),
+                markText: "B",
+                symbol: nil,
+                foreground: .white
+            )
+        }
+        if key.contains("zepto") {
+            return Style(
+                topColor: Color(red: 0.65, green: 0.12, blue: 0.82),
+                bottomColor: Color(red: 0.45, green: 0.05, blue: 0.62),
+                markText: "Z",
+                symbol: nil,
+                foreground: .white
+            )
+        }
+        if key.contains("flipkart") {
+            return Style(
+                topColor: Color(red: 0.15, green: 0.45, blue: 0.95),
+                bottomColor: Color(red: 0.95, green: 0.75, blue: 0.10),
+                markText: "fk",
+                symbol: nil,
+                foreground: .white
+            )
+        }
+        if key.contains("hdfc") {
+            return Style(
+                topColor: Color(red: 0.08, green: 0.30, blue: 0.65),
+                bottomColor: Color(red: 0.85, green: 0.15, blue: 0.15),
+                markText: "HDFC",
+                symbol: nil,
+                foreground: .white
+            )
+        }
+        if key.contains("icici") {
+            return Style(
+                topColor: Color(red: 0.75, green: 0.18, blue: 0.12),
+                bottomColor: Color(red: 0.95, green: 0.48, blue: 0.10),
+                markText: "i",
+                symbol: nil,
+                foreground: .white
+            )
+        }
+        if key.contains("sbi") || key.contains("state bank") {
+            return Style(
+                topColor: Color(red: 0.10, green: 0.42, blue: 0.82),
+                bottomColor: Color(red: 0.04, green: 0.24, blue: 0.60),
+                markText: nil,
+                symbol: "circle.circle.fill",
+                foreground: .white
+            )
+        }
         return nil
     }
 }
@@ -426,19 +606,43 @@ struct AetherServiceMonogram: View {
                 .accessibilityHidden(true)
         } else {
             let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-            let letter = trimmed.first.map { String($0).uppercased() } ?? "A"
+            let words = trimmed.split(separator: " ").filter { !$0.isEmpty }
+            let initials: String = {
+                if words.count >= 2 {
+                    let first = words[0].first.map(String.init) ?? ""
+                    let second = words[1].first.map(String.init) ?? ""
+                    return (first + second).uppercased()
+                }
+                return trimmed.first.map { String($0).uppercased() } ?? "A"
+            }()
             let hash = trimmed.lowercased().unicodeScalars.reduce(5381) { ($0 &* 33) &+ Int($1.value) }
             let pair = Self.palette[Int(hash.magnitude % UInt(Self.palette.count))]
             shape
                 .fill(LinearGradient(colors: [pair.0, pair.1], startPoint: .topLeading, endPoint: .bottomTrailing))
                 .frame(width: size, height: size)
                 .overlay(
-                    shape.strokeBorder(.white.opacity(0.20), lineWidth: 0.6)
+                    LinearGradient(
+                        colors: [.white.opacity(0.24), .clear],
+                        startPoint: .top,
+                        endPoint: .center
+                    )
+                    .clipShape(shape)
                 )
                 .overlay(
-                    Text(verbatim: letter)
-                        .font(.system(size: size * 0.46, weight: .bold, design: .rounded))
+                    shape.strokeBorder(
+                        LinearGradient(
+                            colors: [.white.opacity(0.32), .white.opacity(0.08)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 0.6
+                    )
+                )
+                .overlay(
+                    Text(verbatim: initials)
+                        .font(.system(size: size * (initials.count > 1 ? 0.38 : 0.48), weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
+                        .shadow(color: .black.opacity(0.25), radius: 1, x: 0, y: 1)
                 )
                 .accessibilityHidden(true)
         }

@@ -118,9 +118,27 @@ public final class AetherIconStore: ObservableObject {
     }
 
     private static func proxies(for domain: String) -> [URL] {
+        var list: [URL] = []
         var google = URLComponents(string: "https://www.google.com/s2/favicons")!
         google.queryItems = [.init(name: "domain", value: domain), .init(name: "sz", value: "128")]
-        return [google.url!, URL(string: "https://icons.duckduckgo.com/ip3/\(domain).ico")!]
+        if let u = google.url { list.append(u) }
+
+        if !domain.hasPrefix("www.") {
+            var googleWww = URLComponents(string: "https://www.google.com/s2/favicons")!
+            googleWww.queryItems = [.init(name: "domain", value: "www.\(domain)"), .init(name: "sz", value: "128")]
+            if let u = googleWww.url { list.append(u) }
+        }
+
+        if let ddg = URL(string: "https://icons.duckduckgo.com/ip3/\(domain).ico") {
+            list.append(ddg)
+        }
+        if let direct = URL(string: "https://\(domain)/favicon.ico") {
+            list.append(direct)
+        }
+        if !domain.hasPrefix("www."), let directWww = URL(string: "https://www.\(domain)/favicon.ico") {
+            list.append(directWww)
+        }
+        return list
     }
 
     private static func usable(_ data: Data) -> NSImage? {
@@ -135,10 +153,15 @@ public final class AetherIconStore: ObservableObject {
         guard let url, url.scheme == "https", url.user == nil, url.password == nil,
             url.port == nil || url.port == 443, let host = url.host?.lowercased()
         else { return false }
-        return (host == "www.google.com" && url.path == "/s2/favicons")
+        if (host == "www.google.com" && url.path == "/s2/favicons")
             || (["t0.gstatic.com", "t1.gstatic.com", "t2.gstatic.com", "t3.gstatic.com"].contains(host) && url.path == "/faviconV2")
             || (host == "icons.duckduckgo.com" && url.path.hasPrefix("/ip3/") && url.path.hasSuffix(".ico")
                 && ServiceIdentity.isHostname(String(url.path.dropFirst(5).dropLast(4))))
+            || (ServiceIdentity.isHostname(host) && url.path == "/favicon.ico")
+        {
+            return true
+        }
+        return false
     }
 
     private nonisolated static func download(_ url: URL) async throws -> (Data, URLResponse) {

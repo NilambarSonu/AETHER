@@ -52,7 +52,7 @@ public enum AetherPrefs {
             signInLinks: true,
             resetLinks: true,
             bitwarden: true,
-            showBanner: true,
+            showBanner: false,
             showNotchHUD: true,
             autoCopy: true,
             autoType: false,

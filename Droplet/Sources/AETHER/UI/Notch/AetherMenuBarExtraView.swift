@@ -310,16 +310,7 @@ struct AetherMenuBarExtraView: View {
     }
 
     private func rowSubtitle(for item: CodeItem) -> String {
-        if item.hasFailedSenderAuth {
-            return "Unverified sender · DMARC fail"
-        }
-        if showPreviews && !item.sender.isEmpty && !item.preview.isEmpty {
-            return "\(item.sender) · \(item.preview)"
-        }
-        if showPreviews && !item.preview.isEmpty {
-            return item.preview
-        }
-        return item.sender
+        AetherSubtitleFormatter.cleanSubtitle(for: item, unlocked: model.isUnlocked, showPreviews: showPreviews)
     }
 
     private var footerBar: some View {

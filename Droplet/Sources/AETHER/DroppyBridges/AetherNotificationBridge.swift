@@ -44,7 +44,7 @@ final class AetherNotificationBridge {
         let blur = model.isOn(AetherPrefs.blurCodes)
 
         let formattedCode = Self.formatCode(item.code)
-        let senderSuffix = (showPreviews && !item.sender.isEmpty) ? " · \(item.sender)" : ""
+        let cleanPurpose = AetherSubtitleFormatter.cleanSubtitle(for: item, unlocked: unlocked, showPreviews: showPreviews)
         let title: String
         let body: String
         let actions: [DropletNotificationAction]
@@ -54,28 +54,23 @@ final class AetherNotificationBridge {
             title = "\(item.service) — \(kindTitle)"
             if !unlocked {
                 body = "Locked — click Open to unlock with Touch ID or your password."
-            } else if showPreviews {
-                let hostText = item.destination?.host ?? item.service
-                body = "\(hostText)\(senderSuffix) · \(item.preview)"
             } else {
-                body = item.destination?.host ?? kindTitle
+                body = cleanPurpose
             }
             actions = [
                 DropletNotificationAction(id: "open", title: unlocked ? "Open Link" : "Unlock & Open"),
                 DropletNotificationAction(id: "copy-link", title: "Copy Link"),
             ]
         } else {
-            title = item.hasFailedSenderAuth ? "⚠ \(item.service)\(senderSuffix)" : (item.service + senderSuffix)
+            title = item.hasFailedSenderAuth ? "⚠ \(item.service)" : item.service
             if item.hasFailedSenderAuth {
                 body = "Unverified sender failed DMARC check — auto-copy paused. Open or tap Copy only if trusted."
             } else if !unlocked {
                 body = "Locked — click Copy to unlock with Touch ID or your password."
             } else if blur {
                 body = "Code ready (hidden until hover)."
-            } else if showPreviews, !item.preview.isEmpty {
-                body = "\(formattedCode) · \(item.preview)"
             } else {
-                body = "Verification code: \(formattedCode)"
+                body = "\(formattedCode) · \(cleanPurpose)"
             }
             actions = [
                 DropletNotificationAction(id: "copy", title: unlocked ? "Copy Code" : "Unlock & Copy"),
@@ -83,11 +78,12 @@ final class AetherNotificationBridge {
             ]
         }
 
-        let symbol: String = {
+        let symbol: String? = {
+            if item.origin == .mail { return nil } // Renders AETHER droplet icon instead of generic envelope
             if item.isLink { return item.resetsPassword ? "lock.rotation" : "link" }
             switch item.origin {
             case .messages: return "message.badge.filled.fill"
-            case .mail: return "envelope.badge.shield.half.filled"
+            case .mail: return nil
             case .vault: return "key.fill"
             case .test: return "checkmark.seal.fill"
             }

@@ -377,12 +377,11 @@ public final class AetherAppModel: ObservableObject {
             if isOn(AetherPrefs.autoCopy) { hooks.copyToClipboard(code, item.id) }
             if isOn(AetherPrefs.autoType), hooks.canAutoType(item) { hooks.typeCode(code) }
         }
-        if isOn(AetherPrefs.showBanner) {
-            unlockError = nil
-            hooks.presentBanner(item.id)
-        }
         if isOn(AetherPrefs.showNotchHUD) {
             hooks.presentHUD(item, false)
+        } else if isOn(AetherPrefs.showBanner) {
+            unlockError = nil
+            hooks.presentBanner(item.id)
         }
         if isOn(AetherPrefs.sound) {
             hooks.playArrivalSound()

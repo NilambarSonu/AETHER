@@ -223,31 +223,7 @@ private struct AetherHUDCardView: View {
     }
 
     private func secondarySubtitle(unlocked: Bool, showPreviews: Bool) -> String? {
-        if item.hasFailedSenderAuth {
-            let senderNote = item.sender.isEmpty ? "" : " (\(item.sender))"
-            return "Unverified sender\(senderNote) · Tap Copy only if trusted"
-        }
-        if !unlocked {
-            return "Unlock with Touch ID or your password to copy"
-        }
-        if item.isLink {
-            if showPreviews, !item.sender.isEmpty {
-                return "\(item.sender) · \(item.destination?.host ?? item.kind.title)"
-            }
-            return item.destination?.host ?? item.kind.title
-        }
-        if showPreviews {
-            if !item.sender.isEmpty, !item.preview.isEmpty {
-                return "\(item.sender) · \(item.preview)"
-            }
-            if !item.sender.isEmpty {
-                return item.sender
-            }
-            if !item.preview.isEmpty {
-                return item.preview
-            }
-        }
-        return item.sender.isEmpty ? item.sourceLabel : item.sender
+        AetherSubtitleFormatter.cleanSubtitle(for: item, unlocked: unlocked, showPreviews: showPreviews)
     }
 
     private func primaryButtonTitle(unlocked: Bool) -> String {
