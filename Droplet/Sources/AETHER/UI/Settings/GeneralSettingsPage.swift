@@ -15,57 +15,48 @@ struct GeneralSettingsPage: View {
     var body: some View {
         DropletSettingsPage {
             DropletSettingsSection {
-                settingsSectionHeader("Arrival delivery")
+                settingsSectionHeader("Alerts")
             } content: {
                 DropletSettingsCard {
-                    AetherSettingsToggleRow(
-                        title: "Show notification banner",
+                    DropletToggleRow(
+                        title: "Show banner",
                         icon: "rectangle.inset.topright.filled",
                         iconColor: .blue,
-                        topColor: .cyan,
-                        infoTip: "Posts an interactive banner in Droppy's notch notification stack without stealing app focus.",
                         isOn: model.boolBinding(AetherPrefs.showBanner)
                     )
 
-                    AetherSettingsToggleRow(
+                    DropletToggleRow(
                         title: "Show notch HUD",
                         icon: "macbook.gen2",
                         iconColor: .indigo,
-                        topColor: .blue,
-                        infoTip: "Shows the sender logo, email/address, and verification code directly inside the notch.",
                         isOn: model.boolBinding(AetherPrefs.showNotchHUD)
                     )
 
-                    AetherSettingsToggleRow(
-                        title: "Play arrival sound",
+                    DropletToggleRow(
+                        title: "Play sound",
                         icon: "speaker.wave.2.fill",
                         iconColor: .pink,
-                        topColor: Color(red: 1.0, green: 0.34, blue: 0.56),
-                        infoTip: "Plays a subtle chime when a fresh verification code or sign-in link arrives.",
                         isOn: model.boolBinding(AetherPrefs.sound)
                     )
                 }
             }
 
             DropletSettingsSection {
-                settingsSectionHeader("Automatic input")
+                settingsSectionHeader("After a code arrives")
             } content: {
                 DropletSettingsCard {
-                    AetherSettingsToggleRow(
-                        title: "Automatically copy codes",
+                    DropletToggleRow(
+                        title: "Copy to clipboard",
                         icon: "doc.on.clipboard.fill",
                         iconColor: .purple,
-                        topColor: .indigo,
-                        infoTip: "Copies arriving OTP digits to a concealed local pasteboard while unlocked. Sign-in links are never auto-copied.",
                         isOn: model.boolBinding(AetherPrefs.autoCopy)
                     )
 
-                    AetherSettingsToggleRow(
-                        title: "Automatically type codes",
+                    DropletToggleRow(
+                        title: "Type automatically",
                         icon: "text.cursor",
                         iconColor: .teal,
-                        topColor: .mint,
-                        infoTip: "Types arriving codes into verified input fields while blocking chat, notes, screen-share apps, and mismatched browser domains.",
+                        subtitle: "Needs Accessibility access. Types into the focused field.",
                         isOn: model.boolBinding(AetherPrefs.autoType)
                     )
                     .onChange(of: autoType) { _, enabled in
@@ -77,22 +68,18 @@ struct GeneralSettingsPage: View {
                     if autoType {
                         let _ = model.now
                         let trusted = AccessibilityTrust.isTrusted
-                        AetherSettingsControlRow(
-                            title: "Accessibility permission",
-                            subtitle: trusted ? "Droppy is authorized to type codes." : "Required in System Settings → Accessibility.",
-                            icon: "accessibility",
-                            iconColor: trusted ? .green : .orange
-                        ) {
-                            if trusted {
-                                Label("Allowed", systemImage: "checkmark.circle.fill")
-                                    .font(.callout)
-                                    .foregroundStyle(.green)
-                            } else {
+                        if !trusted {
+                            DropletControlRow(
+                                title: "Accessibility permission",
+                                icon: "accessibility",
+                                iconColor: .orange
+                            ) {
                                 Button("Allow…") {
                                     AccessibilityTrust.requestTrust(force: true)
                                     droplet.openAccessibilitySettings()
                                 }
                                 .buttonStyle(.borderedProminent)
+                                .controlSize(.small)
                             }
                         }
                     }
@@ -100,31 +87,44 @@ struct GeneralSettingsPage: View {
             }
 
             DropletSettingsSection {
-                settingsSectionHeader("Keyboard shortcuts")
+                settingsSectionHeader("Notch")
             } content: {
                 DropletSettingsCard {
-                    AetherSettingsToggleRow(
-                        title: "Global keyboard shortcuts",
+                    DropletToggleRow(
+                        title: "Compact chip",
+                        icon: "menubar.rectangle",
+                        iconColor: .secondary,
+                        isOn: model.boolBinding(AetherPrefs.codeInMenuBar)
+                    )
+                }
+            }
+
+            DropletSettingsSection {
+                settingsSectionHeader("Shortcuts")
+            } content: {
+                DropletSettingsCard {
+                    DropletToggleRow(
+                        title: "Global shortcuts",
                         icon: "command",
-                        iconColor: .gray,
-                        topColor: Color(white: 0.48),
-                        infoTip: "Registers Copy Latest Code and Show Verification Codes hotkeys inside Droppy.",
+                        iconColor: .secondary,
                         isOn: model.boolBinding(AetherPrefs.hotkeys)
                     )
                     .onChange(of: hotkeys) { _, _ in
                         droplet.syncShortcuts()
                     }
 
-                    AetherSettingsControlRow(
-                        title: "Customize shortcuts",
-                        icon: "keyboard.fill",
-                        iconColor: .blue,
-                        infoTip: "Rebind AETHER shortcuts inside Droppy's Shortcuts page."
-                    ) {
-                        Button("Open Shortcuts…") {
-                            droplet.openShortcutsSettings()
+                    if hotkeys {
+                        DropletControlRow(
+                            title: "Customize",
+                            icon: "keyboard.fill",
+                            iconColor: .secondary
+                        ) {
+                            Button("Open Shortcuts…") {
+                                droplet.openShortcutsSettings()
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
                         }
-                        .buttonStyle(.bordered)
                     }
                 }
             }
