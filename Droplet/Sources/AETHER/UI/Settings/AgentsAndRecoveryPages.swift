@@ -46,77 +46,79 @@ struct AgentsSettingsPage: View {
             }
 
             DropletSettingsSection {
-                settingsSectionHeader("Droppy MCP agent access")
+                settingsSectionHeader("Access")
             } content: {
                 DropletSettingsCard {
-                    AetherSettingsToggleRow(
+                    DropletToggleRow(
                         title: "Allow AI agents to request codes",
                         icon: "terminal.fill",
                         iconColor: .indigo,
-                        infoTip: "Exposes droplet_aether_get_code, droplet_aether_get_status, and droplet_aether_list_recent_services through Droppy's MCP server.",
                         isOn: Binding(
                             get: { model.agents.config.enabled },
                             set: { on in Task { await model.agents.setEnabled(on) } }
                         )
                     )
 
-                    AetherSettingsToggleRow(
-                        title: "Allow sharing sign-in links",
-                        icon: "link",
-                        iconColor: .teal,
-                        infoTip: "Releases DMARC-verified, destination-matched sign-in links. Password-reset links are always blocked.",
-                        isOn: Binding(
-                            get: { model.agents.config.links },
-                            set: { on in Task { await model.agents.setLinks(on) } }
+                    if model.agents.config.enabled {
+                        DropletToggleRow(
+                            title: "Allow sign-in links",
+                            icon: "link",
+                            iconColor: .teal,
+                            isOn: Binding(
+                                get: { model.agents.config.links },
+                                set: { on in Task { await model.agents.setLinks(on) } }
+                            )
                         )
-                    )
-                    .disabled(!model.agents.config.enabled)
-
-                    AetherSettingsToggleRow(
-                        title: "Allow all requests without asking",
-                        icon: "bolt.shield.fill",
-                        iconColor: .orange,
-                        infoTip: "Auto-releases domain-matched codes up to 20 per hour. Config is AEAD tamper-sealed in Keychain.",
-                        isOn: Binding(
-                            get: { model.agents.config.allowAll },
-                            set: { on in Task { await model.agents.setAllowAll(on) } }
-                        )
-                    )
-                    .disabled(!model.agents.config.enabled)
+                    }
                 }
 
-                DropletSettingsCard {
-                    AetherWarningRow(
-                        message: "Security guardrails: 20 automatic releases/hour max, DMARC alignment checked on email, password-reset links blocked, and auto-lock after 3 consecutive denials.",
-                        calm: true
-                    )
+                Text("Every request needs Touch ID. Limits: 20 per hour, sender checks, password-reset links always blocked, auto-lock after 3 denials.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.leading, DroppySettingsLayoutMetrics.sectionHeaderLeadingInset)
+            }
+
+            if model.agents.config.enabled {
+                DropletSettingsSection {
+                    settingsSectionHeader("Advanced")
+                } content: {
+                    DropletSettingsCard {
+                        DropletToggleRow(
+                            title: "Skip approval prompts",
+                            icon: "exclamationmark.triangle.fill",
+                            iconColor: .orange,
+                            subtitle: "Agents get codes without Touch ID. Not recommended.",
+                            isOn: Binding(
+                                get: { model.agents.config.allowAll },
+                                set: { on in Task { await model.agents.setAllowAll(on) } }
+                            )
+                        )
+                    }
                 }
             }
 
             DropletSettingsSection {
-                settingsSectionHeader("Coding agent skills")
+                settingsSectionHeader("Connect an agent")
             } content: {
                 DropletSettingsCard {
                     ForEach(AgentSkillKind.allCases) { kind in
                         let installed = kind.isInstalled(home: homeURL)
                         let state = skillStates[kind] ?? kind.state(home: homeURL)
-                        AetherSettingsControlRow(
+                        DropletControlRow(
                             title: kind.name,
                             icon: state == .connected ? "checkmark.circle.fill" : "wrench.and.screwdriver.fill",
-                            iconColor: state == .connected ? .green : .gray,
-                            infoTip: "Writes the aether-otp skill into \(kind.name)'s local skills folder pointing to Droppy MCP."
+                            iconColor: state == .connected ? .green : .secondary
                         ) {
                             skillControls(kind: kind, installed: installed, state: state)
                         }
                     }
 
-                    AetherSettingsControlRow(
-                        title: "Agent prompt snippet",
+                    DropletControlRow(
+                        title: "Copy setup instructions",
                         icon: "doc.on.clipboard.fill",
-                        iconColor: .blue,
-                        infoTip: "Copies AETHER's MCP usage snippet for custom agent prompts."
+                        iconColor: .blue
                     ) {
-                        Button(copiedFeedback ? "Copied!" : "Copy Instructions") {
+                        Button(copiedFeedback ? "Copied" : "Copy") {
                             droplet.copyText(AgentSkillKind.instructionsMarkdown)
                             copiedFeedback = true
                             Task {
@@ -128,36 +130,35 @@ struct AgentsSettingsPage: View {
                         .controlSize(.small)
                     }
                 }
+
+                Text("Adds AETHER instructions to your coding agent.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.leading, DroppySettingsLayoutMetrics.sectionHeaderLeadingInset)
             }
 
             DropletSettingsSection {
-                settingsSectionHeader("Rules & audit log")
+                settingsSectionHeader("Activity")
             } content: {
                 DropletSettingsCard {
                     DropletSettingsPageLink(
-                        "Saved approval rules",
+                        "Approval rules",
                         subtitle: rulesSubtitle,
                         page: AetherSettingsRoute.agentRules.rawValue
                     ) {
-                        AetherSettingsIconBadge(
-                            symbol: "checkmark.shield.fill",
-                            top: Color(red: 0.22, green: 0.78, blue: 0.36),
-                            bottom: Color(red: 0.10, green: 0.56, blue: 0.24),
-                            size: AetherSymbolTile.settingsLinkSize
-                        )
+                        Image(systemName: "checkmark.shield.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.green)
                     }
 
                     DropletSettingsPageLink(
-                        "Encrypted request log",
+                        "Request log",
                         subtitle: historySubtitle,
                         page: AetherSettingsRoute.agentHistory.rawValue
                     ) {
-                        AetherSettingsIconBadge(
-                            symbol: "list.bullet.rectangle.portrait.fill",
-                            top: Color(red: 0.40, green: 0.38, blue: 0.96),
-                            bottom: Color(red: 0.24, green: 0.22, blue: 0.78),
-                            size: AetherSymbolTile.settingsLinkSize
-                        )
+                        Image(systemName: "list.bullet.rectangle.portrait.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.purple)
                     }
                 }
             }
@@ -172,6 +173,7 @@ struct AgentsSettingsPage: View {
                 }
             }
         }
+        .navigationTitle("AI agents")
         .onAppear {
             refreshSkillStates()
         }

@@ -128,13 +128,37 @@ public final class AetherDroplet:
 
     public var settingsSearchEntries: [SettingsSearchEntry] {
         [
-            SettingsSearchEntry(title: "General delivery, auto-copy & shortcuts", keywords: ["banner", "hud", "clipboard", "auto-type", "shortcuts", "sound"]),
-            SettingsSearchEntry(title: "Mail, Messages & OAuth accounts", keywords: ["messages", "imessage", "sms", "apple mail", "gmail", "outlook", "icloud", "yahoo", "imap", "oauth"]),
-            SettingsSearchEntry(title: "Bitwarden TOTP authenticator", keywords: ["bitwarden", "totp", "bw", "vault", "authenticator"]),
-            SettingsSearchEntry(title: "Privacy, Touch ID & history", keywords: ["touch id", "lock", "screen capture", "blur", "clipboard", "history", "icons"]),
-            SettingsSearchEntry(title: "AI agents & Droppy MCP", keywords: ["mcp", "claude", "codex", "cursor", "agent", "rules", "log"]),
-            SettingsSearchEntry(title: "Recent unmatched emails", keywords: ["recovery", "emails", "unmatched"]),
-            SettingsSearchEntry(title: "Ignored senders & false positives", keywords: ["ignore", "sender", "not a code", "filter"]),
+            // Status & quick actions
+            SettingsSearchEntry(title: "Vault status & lock", keywords: ["vault", "lock", "unlock", "memory", "status"]),
+            SettingsSearchEntry(title: "Notch widget & test code", keywords: ["notch widget", "test code", "preview", "quick actions"]),
+            SettingsSearchEntry(title: "Connected mail accounts", keywords: ["accounts", "connected accounts", "mailbox", "gmail", "outlook", "icloud", "yahoo", "imap", "oauth", "add account", "forget account"]),
+
+            // General
+            SettingsSearchEntry(title: "Alerts (banner, notch HUD & sound)", keywords: ["banner", "hud", "notch hud", "sound", "alerts", "chime"]),
+            SettingsSearchEntry(title: "Copy to clipboard & auto-type", keywords: ["copy to clipboard", "clipboard", "auto-copy", "type automatically", "auto-type", "accessibility"]),
+            SettingsSearchEntry(title: "Compact chip in notch", keywords: ["compact chip", "chip", "notch", "menu bar"]),
+            SettingsSearchEntry(title: "Global keyboard shortcuts", keywords: ["shortcuts", "global shortcuts", "hotkeys", "customize"]),
+
+            // Sources
+            SettingsSearchEntry(title: "Messages & Apple Mail sources", keywords: ["messages", "imessage", "sms", "apple mail", "local mailboxes"]),
+            SettingsSearchEntry(title: "Include spam and junk mail", keywords: ["spam", "junk", "outlook junk", "gmail spam"]),
+            SettingsSearchEntry(title: "Bitwarden TOTP authenticator", keywords: ["bitwarden", "totp", "authenticator", "bw", "vault"]),
+            SettingsSearchEntry(title: "Verification codes, sign-in links & reset links", keywords: ["verification codes", "codes", "sign-in links", "magic links", "password reset links"]),
+            SettingsSearchEntry(title: "Ignored senders & not-a-code rules", keywords: ["ignored senders", "ignore", "not-a-code rules", "false positives", "filters"]),
+            SettingsSearchEntry(title: "Unmatched recent emails", keywords: ["unmatched emails", "recovery", "emails", "troubleshooting"]),
+
+            // Privacy
+            SettingsSearchEntry(title: "Require Touch ID to view codes", keywords: ["touch id", "password", "access", "device authentication"]),
+            SettingsSearchEntry(title: "On-screen privacy & hover blur", keywords: ["hide from screen capture", "screen recording", "hide codes until hover", "blur", "message previews"]),
+            SettingsSearchEntry(title: "Auto-clear clipboard & restore prior text", keywords: ["auto-clear", "clear after", "clipboard ttl", "restore previous clipboard", "confirm unverified emails", "dmarc"]),
+            SettingsSearchEntry(title: "Code history & clear on lock", keywords: ["keep codes for", "history", "clear when mac locks", "clear history", "memory"]),
+            SettingsSearchEntry(title: "Download sender logos", keywords: ["download sender logos", "brand logos", "icons", "network", "hmac"]),
+
+            // AI agents
+            SettingsSearchEntry(title: "AI agents MCP access & permissions", keywords: ["ai agents", "mcp", "allow ai agents to request codes", "allow sign-in links"]),
+            SettingsSearchEntry(title: "Skip approval prompts (advanced)", keywords: ["skip approval prompts", "auto-release", "advanced", "prompts"]),
+            SettingsSearchEntry(title: "Connect coding agents (Claude, Codex, Cursor)", keywords: ["claude code", "codex", "cursor", "skills", "setup instructions", "connect an agent"]),
+            SettingsSearchEntry(title: "Agent approval rules & request log", keywords: ["approval rules", "request log", "activity", "audit log"]),
         ]
     }
 
