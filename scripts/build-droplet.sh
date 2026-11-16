@@ -403,6 +403,15 @@ EOF
         find "$DEFAULT_BUNDLE" -name ".DS_Store" -delete
     fi
 
+    # Ensure compiled AETHER.icns is in the bundle and Info.plist references it
+    if [ -f "$DROPLET_PKG/.droppykit/AETHER.icns" ]; then
+        cp "$DROPLET_PKG/.droppykit/AETHER.icns" "$DEFAULT_BUNDLE/Contents/Resources/AETHER.icns"
+        /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string AETHER" "$DEFAULT_BUNDLE/Contents/Info.plist" >/dev/null 2>&1 || \
+            /usr/libexec/PlistBuddy -c "Set :CFBundleIconFile AETHER" "$DEFAULT_BUNDLE/Contents/Info.plist" >/dev/null 2>&1 || true
+        /usr/libexec/PlistBuddy -c "Add :CFBundleIconName string AETHER" "$DEFAULT_BUNDLE/Contents/Info.plist" >/dev/null 2>&1 || \
+            /usr/libexec/PlistBuddy -c "Set :CFBundleIconName AETHER" "$DEFAULT_BUNDLE/Contents/Info.plist" >/dev/null 2>&1 || true
+    fi
+
     echo "==> Validating AETHER.droplet via official 'droppykit validate'..."
     (cd "$DROPLET_PKG" && "$DROPPYKIT_CLI" validate "${VALIDATE_ARGS[@]+"${VALIDATE_ARGS[@]}"}")
 

@@ -133,6 +133,11 @@ jobs:
             droppykit build
             strip -x .build/AETHER.droplet/Contents/MacOS/AETHER
             find .build/AETHER.droplet -name ".DS_Store" -delete
+            if [ -f .droppykit/AETHER.icns ]; then
+              cp .droppykit/AETHER.icns .build/AETHER.droplet/Contents/Resources/AETHER.icns
+              /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string AETHER" .build/AETHER.droplet/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :CFBundleIconFile AETHER" .build/AETHER.droplet/Contents/Info.plist 2>/dev/null || true
+              /usr/libexec/PlistBuddy -c "Add :CFBundleIconName string AETHER" .build/AETHER.droplet/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :CFBundleIconName AETHER" .build/AETHER.droplet/Contents/Info.plist 2>/dev/null || true
+            fi
             du -sh .build/AETHER.droplet
             ls -lh .build/AETHER.droplet/Contents/MacOS/AETHER
             droppykit validate
