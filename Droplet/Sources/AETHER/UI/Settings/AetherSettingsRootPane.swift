@@ -12,71 +12,149 @@ struct AetherSettingsRootPane: View {
     var body: some View {
         DropletSettingsPane {
             DropletSettingsSection {
-                settingsSectionHeader("Protection & quick preview")
+                settingsSectionHeader("Status")
             } content: {
                 DropletSettingsCard {
-                    AetherSettingsControlRow(
-                        title: "Vault protection",
-                        subtitle: model.isUnlocked
-                            ? "Active OTPs and Bitwarden secrets are unlocked in memory."
-                            : "Codes and vault secrets stay encrypted & locked until verified.",
+                    DropletControlRow(
+                        title: "Vault",
                         icon: model.isUnlocked ? "lock.open.fill" : "lock.fill",
                         iconColor: model.isUnlocked ? .green : .orange,
-                        infoTip: "Secrets are sealed in local macOS Keychain with AES-256-GCM; received OTPs never touch disk."
+                        infoTip: "Codes are held in memory only while unlocked."
                     ) {
-                        HStack(spacing: 8) {
-                            Text(model.isUnlocked ? "Unlocked" : "Locked")
-                                .font(.callout)
-                                .foregroundStyle(.secondary)
+                        HStack(spacing: DroppySpacing.sm) {
+                            DropletValuePill(text: model.isUnlocked ? "Unlocked" : "Locked")
                             if model.isUnlocked {
-                                Button("Lock") { model.vaultSession.lock() }
-                                    .buttonStyle(.bordered)
+                                Button("Lock") {
+                                    model.vaultSession.lock()
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
                             } else {
                                 Button(model.vaultSession.isBusy ? "Unlocking…" : "Unlock") {
                                     model.unlocked {}
                                 }
                                 .buttonStyle(.borderedProminent)
+                                .controlSize(.small)
                                 .disabled(model.vaultSession.isBusy)
                             }
                         }
                     }
+                }
+            }
 
-                    AetherSettingsControlRow(
-                        title: "Notch shelf widget",
-                        subtitle: "View recent codes, search TOTP secrets, and trigger instant actions.",
+            DropletSettingsSection {
+                settingsSectionHeader("Quick actions")
+            } content: {
+                DropletSettingsCard {
+                    DropletControlRow(
+                        title: "Open notch widget",
                         icon: "rectangle.topthird.inset.filled",
-                        iconColor: .blue,
-                        topColor: .cyan
+                        iconColor: .blue
                     ) {
-                        Button("Open Widget") {
+                        Button("Open") {
                             _ = droplet.openShelfWidget()
                         }
                         .buttonStyle(.bordered)
+                        .controlSize(.small)
                     }
 
-                    AetherSettingsControlRow(
-                        title: "Test code delivery",
-                        subtitle: "Simulates an OTP arrival to verify the notch HUD, banner, and auto-copy.",
+                    DropletControlRow(
+                        title: "Send test code",
                         icon: "sparkles",
                         iconColor: .indigo,
-                        topColor: .purple
+                        infoTip: "Preview how a code arrives."
                     ) {
-                        Button("Send Test Code") {
+                        Button("Send") {
                             model.showTestCode(userInitiated: true)
                         }
                         .buttonStyle(.bordered)
+                        .controlSize(.small)
                         .disabled(!model.isOn(AetherPrefs.receivedCodes))
                     }
                 }
             }
 
             DropletSettingsSection {
-                settingsSectionHeader("Configuration")
+                settingsSectionHeader("Connected accounts")
+            } content: {
+                DropletSettingsCard {
+                    if model.accounts.isEmpty {
+                        HStack(alignment: .center, spacing: DroppySpacing.md) {
+                            Image(systemName: "tray")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 20, alignment: .center)
+                                .accessibilityHidden(true)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("No accounts connected")
+                                    .font(.body)
+                                    .foregroundStyle(.primary)
+
+                                Text("Add a mailbox to catch codes from email.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer(minLength: 8)
+
+                            Button("Add account") {
+                                droplet.openSettingsPage(AetherSettingsRoute.addAccount.rawValue, title: "Add mail account")
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
+                        .padding(.horizontal, DroppySettingsLayoutMetrics.rowPadding)
+                        .padding(.vertical, DroppySettingsLayoutMetrics.rowVerticalPadding)
+                    } else {
+                        let displayed = model.accounts.count > 4 ? Array(model.accounts.prefix(3)) : model.accounts
+                        ForEach(displayed) { account in
+                            ConnectedAccountRow(
+                                account: account,
+                                model: model,
+                                onEdit: {
+                                    droplet.openSettingsPage(AetherSettingsRoute.editAccount(account.id), title: "Edit mail account")
+                                },
+                                onSignInAgain: {
+                                    droplet.openSettingsPage(AetherSettingsRoute.editAccount(account.id), title: "Edit mail account")
+                                }
+                            )
+                        }
+
+                        if model.accounts.count > 4 {
+                            DropletSettingsPageLink(
+                                "Show all in Sources",
+                                subtitle: "\(model.accounts.count) connected accounts",
+                                page: AetherSettingsRoute.sources.rawValue
+                            ) {
+                                Image(systemName: "tray.2")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+
+                        DropletControlRow(
+                            title: "Add account…",
+                            icon: "plus",
+                            iconColor: .blue
+                        ) {
+                            Button("Add…") {
+                                droplet.openSettingsPage(AetherSettingsRoute.addAccount.rawValue, title: "Add mail account")
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
+                    }
+                }
+            }
+
+            DropletSettingsSection {
+                settingsSectionHeader("Settings")
             } content: {
                 DropletSettingsCard {
                     DropletSettingsPageLink(
                         "General",
-                        subtitle: generalSubtitle,
+                        subtitle: generalSummary,
                         page: AetherSettingsRoute.general.rawValue
                     ) {
                         AetherSettingsIconBadge(
@@ -88,8 +166,8 @@ struct AetherSettingsRootPane: View {
                     }
 
                     DropletSettingsPageLink(
-                        "Sources & accounts",
-                        subtitle: sourcesSubtitle,
+                        "Sources",
+                        subtitle: sourcesSummary,
                         page: AetherSettingsRoute.sources.rawValue
                     ) {
                         AetherSettingsIconBadge(
@@ -101,8 +179,8 @@ struct AetherSettingsRootPane: View {
                     }
 
                     DropletSettingsPageLink(
-                        "Privacy & history",
-                        subtitle: privacySubtitle,
+                        "Privacy",
+                        subtitle: privacySummary,
                         page: AetherSettingsRoute.privacy.rawValue
                     ) {
                         AetherSettingsIconBadge(
@@ -114,27 +192,14 @@ struct AetherSettingsRootPane: View {
                     }
 
                     DropletSettingsPageLink(
-                        "Agents & MCP",
-                        subtitle: agentsSubtitle,
+                        "AI agents",
+                        subtitle: agentsSummary,
                         page: AetherSettingsRoute.agents.rawValue
                     ) {
                         AetherSettingsIconBadge(
                             symbol: "terminal.fill",
                             top: Color(red: 0.40, green: 0.38, blue: 0.96),
                             bottom: Color(red: 0.26, green: 0.22, blue: 0.78),
-                            size: AetherSymbolTile.settingsLinkSize
-                        )
-                    }
-
-                    DropletSettingsPageLink(
-                        "Recent emails",
-                        subtitle: recoverySubtitle,
-                        page: AetherSettingsRoute.recovery.rawValue
-                    ) {
-                        AetherSettingsIconBadge(
-                            symbol: "envelope.badge.shield.half.filled",
-                            top: Color(red: 0.78, green: 0.28, blue: 0.92),
-                            bottom: Color(red: 0.56, green: 0.14, blue: 0.76),
                             size: AetherSymbolTile.settingsLinkSize
                         )
                     }
@@ -154,43 +219,38 @@ struct AetherSettingsRootPane: View {
         .background(AetherWindowAnchorReader())
     }
 
-    private var generalSubtitle: String {
+    private var generalSummary: String {
         var parts: [String] = []
         if model.isOn(AetherPrefs.showBanner) { parts.append("Banner") }
-        if model.isOn(AetherPrefs.showNotchHUD) { parts.append("Notch HUD") }
-        if model.isOn(AetherPrefs.autoCopy) { parts.append("Auto-copy") }
-        if model.isOn(AetherPrefs.autoType) { parts.append("Auto-type") }
-        return parts.isEmpty ? "Silent arrival mode" : parts.joined(separator: " · ")
+        if model.isOn(AetherPrefs.showNotchHUD) { parts.append("HUD") }
+        if model.isOn(AetherPrefs.autoCopy) { parts.append("Copy") }
+        if model.isOn(AetherPrefs.autoType) { parts.append("Type") }
+        if model.isOn(AetherPrefs.sound) { parts.append("Sound") }
+        return parts.isEmpty ? "Off" : parts.joined(separator: " · ")
     }
 
-    private var sourcesSubtitle: String {
-        let liveCount = model.sources.filter { $0.status == .live }.count
-        let attentionCount = model.sources.filter { $0.status.needsAttention }.count
-        if attentionCount > 0 {
-            return "\(attentionCount) \(attentionCount == 1 ? "source needs" : "sources need") attention"
+    private var sourcesSummary: String {
+        var parts: [String] = []
+        if model.isOn(AetherPrefs.messages) { parts.append("Messages") }
+        if model.isOn(AetherPrefs.appleMail) { parts.append("Apple Mail") }
+        let mailboxes = model.accounts.count
+        if mailboxes > 0 {
+            parts.append("\(mailboxes) \(mailboxes == 1 ? "mailbox" : "mailboxes")")
         }
-        if liveCount > 0 {
-            return "\(liveCount) active \(liveCount == 1 ? "source" : "sources") watching"
+        if model.isOn(AetherPrefs.bitwarden) && model.hasVault {
+            parts.append("Bitwarden")
         }
-        return "Messages, Apple Mail, Gmail, Outlook & IMAP"
+        return parts.isEmpty ? "None" : parts.joined(separator: " + ")
     }
 
-    private var privacySubtitle: String {
+    private var privacySummary: String {
         let days = max(1, model.defaults.integer(forKey: AetherPrefs.historyDays))
-        let lockDesc = model.isOn(AetherPrefs.unlockWithMac) ? "Unlock with Mac" : "Touch ID / password"
-        return "\(lockDesc) · Keep \(days) \(days == 1 ? "day" : "days")"
+        let daysText = "Codes kept \(days) \(days == 1 ? "day" : "days")"
+        let touchIDRequired = !model.isOn(AetherPrefs.unlockWithMac)
+        return touchIDRequired ? "Touch ID · \(daysText)" : daysText
     }
 
-    private var agentsSubtitle: String {
-        guard model.agents.config.enabled else { return "Off" }
-        if model.agents.config.allowAll { return "Auto-releasing · max 20/hr" }
-        let count = model.agents.config.rules.count
-        return count == 0 ? "On · asks with Touch ID" : "On · \(count) saved \(count == 1 ? "rule" : "rules")"
-    }
-
-    private var recoverySubtitle: String {
-        guard model.isUnlocked else { return "Unmatched emails from the last 30 minutes" }
-        let count = model.recovery.entries.count
-        return count == 0 ? "None captured recently" : "\(count) recent \(count == 1 ? "email" : "emails")"
+    private var agentsSummary: String {
+        model.agents.config.enabled ? "On" : "Off"
     }
 }

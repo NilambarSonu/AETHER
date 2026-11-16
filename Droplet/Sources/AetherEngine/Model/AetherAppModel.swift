@@ -559,9 +559,13 @@ public final class AetherAppModel: ObservableObject {
         hooks.dismissBanner(item.id)
     }
 
-    private func remove(where gone: (CodeItem) -> Bool) {
+    func removeItems(where gone: (CodeItem) -> Bool) {
         clipboard.clearIfOurs(ids: Set(items.filter(gone).map(\.id)))
         items.removeAll(where: gone)
+    }
+
+    private func remove(where gone: (CodeItem) -> Bool) {
+        removeItems(where: gone)
     }
 
     public func isIgnored(_ sender: String) -> Bool {

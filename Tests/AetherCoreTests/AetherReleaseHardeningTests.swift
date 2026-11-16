@@ -159,7 +159,6 @@ struct AetherReleaseHardeningTests {
                 "global-shortcuts",
                 "network-client",
                 "clipboard-write",
-                "full-disk-access-probe",
                 "accessibility",
                 "sound-playback",
             ],
@@ -297,7 +296,7 @@ struct AetherReleaseHardeningTests {
         #expect(surfaces.isSuperset(of: ["settings-pane", "menu-bar-extra", "shelf-widget", "live-activity", "hud"]))
 
         let capabilities = Set(manifest?["capabilities"] as? [String] ?? [])
-        #expect(capabilities.isSuperset(of: ["hud", "notch-banner", "menu-bar", "global-shortcuts", "network-client", "clipboard-write", "full-disk-access-probe", "accessibility"]))
+        #expect(capabilities.isSuperset(of: ["hud", "notch-banner", "menu-bar", "global-shortcuts", "network-client", "clipboard-write", "accessibility"]))
 
         let kit = manifest?["kit"] as? [String: Any]
         #expect(kit?["abi"] as? Int == 1)

@@ -87,6 +87,12 @@ public extension AetherAppModel {
         accounts.removeAll { $0.id == saved.id }
     }
 
+    func forgetAccount(_ account: MailAccount, keychain: AccountKeychain? = nil) throws {
+        try remove(account, keychain: keychain)
+        removeItems { $0.sourceKey == account.id.uuidString }
+        recovery.remove(sourceKey: account.id.uuidString)
+    }
+
     func removeUnusedCredentials(for account: MailAccount, keychain: AccountKeychain? = nil) throws {
         let kc = keychain ?? .backing(secrets)
         guard !accounts.contains(where: { $0.secretKey == account.secretKey }) else { return }
