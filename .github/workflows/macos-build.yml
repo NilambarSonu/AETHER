@@ -121,7 +121,11 @@ jobs:
           ./scripts/prepare-droplet-icon.sh
 
           echo "==> Running official droppykit version, lint, build, strip, validate..."
-          sed -i '' 's/>\/dev\/null//g' "$RUNNER_TEMP/droppykit/Scripts/build-droplet.sh"
+          python3 -c '
+          import pathlib, re
+          p = pathlib.Path("'"$RUNNER_TEMP"'/droppykit/Scripts/build-droplet.sh")
+          p.write_text(re.sub(r"(?<![0-9])>/dev/null", "", p.read_text()))
+          '
           (
             cd Droplet
             droppykit version
