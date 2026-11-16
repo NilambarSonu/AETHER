@@ -125,7 +125,6 @@ struct AetherShelfWidgetView: View {
                     buttonSize: 28
                 ) {
                     model.boostSources()
-                    model.monitor.checkAll()
                 }
 
                 AetherLiquidGlassButton(

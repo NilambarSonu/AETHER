@@ -120,7 +120,7 @@ struct ConnectedAccountRow: View {
             Button("Forget account", role: .destructive) {
                 do {
                     errorMessage = nil
-                    withAnimation(.easeInOut(duration: 0.25)) {
+                    try withAnimation(.easeInOut(duration: 0.25)) {
                         try model.forgetAccount(account)
                     }
                 } catch {
