@@ -521,8 +521,15 @@ struct AetherEngineTests {
         clipboard.copy("918273", id: id, pasteboard: pb)
         #expect(pb.string(forType: .string) == "918273")
 
-        try await Task.sleep(for: .seconds(0.25))
-        #expect(pb.string(forType: .string) == "previous-user-note")
+        var restored = false
+        for _ in 0..<30 {
+            try await Task.sleep(for: .milliseconds(50))
+            if pb.string(forType: .string) == "previous-user-note" {
+                restored = true
+                break
+            }
+        }
+        #expect(restored)
 
         // Oversized input (~180 KB padding + code at tail) completes quickly with head+tail bounding
         let filler = String(repeating: "Newsletter paragraph filler text. ", count: 5_400)
