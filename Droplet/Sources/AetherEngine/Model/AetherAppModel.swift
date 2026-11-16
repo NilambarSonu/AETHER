@@ -24,6 +24,7 @@ public final class AetherAppModel: ObservableObject {
     @Published public private(set) var notCodes: [NotCodeRule] {
         didSet { defaults.set(try? JSONEncoder().encode(notCodes), forKey: AetherPrefs.notCodes) }
     }
+    @Published public private(set) var notchDismissedIDs = Set<UUID>()
 
     public let defaults: UserDefaults
     public let secrets: AetherSecretStore
@@ -361,10 +362,12 @@ public final class AetherAppModel: ObservableObject {
             updated.id = items[index].id
             updated.used = items[index].used
             items[index] = updated
+            notchDismissedIDs.remove(updated.id)
             return
         }
         items.append(item)
         items.sort { $0.received > $1.received }
+        notchDismissedIDs.remove(item.id)
         icons.prefetch(domain: item.domain)
 
         guard item.shouldAnnounce(at: Date()) else { return }
@@ -559,7 +562,15 @@ public final class AetherAppModel: ObservableObject {
         hooks.dismissBanner(item.id)
     }
 
-    func removeItems(where gone: (CodeItem) -> Bool) {
+    /// Dismisses active items from current notch display without wiping the 7-day memory retention database.
+    public func clearNotchDisplay() {
+        for item in items {
+            notchDismissedIDs.insert(item.id)
+        }
+        objectWillChange.send()
+    }
+
+    public func removeItems(where gone: (CodeItem) -> Bool) {
         clipboard.clearIfOurs(ids: Set(items.filter(gone).map(\.id)))
         items.removeAll(where: gone)
     }

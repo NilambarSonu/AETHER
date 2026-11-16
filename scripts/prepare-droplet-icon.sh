@@ -17,8 +17,8 @@ fi
 rm -rf "$ICON_DIR"
 mkdir -p "$ASSETS_OUT"
 
-# Compact 256x256 PNG (~23 KB) renders sharply inside Finder/Droppy squircles without inflating bundle size.
-sips -z 256 256 "$ASSET_PNG" --out "$ASSETS_OUT/mark.png" >/dev/null
+# High-resolution 512x512 PNG renders crisply inside Finder/Droppy launcher squircles without inflating bundle size.
+sips -z 512 512 "$ASSET_PNG" --out "$ASSETS_OUT/mark.png" >/dev/null
 
 cat > "$ICON_DIR/icon.json" <<'EOF'
 {

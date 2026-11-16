@@ -121,6 +121,7 @@ jobs:
           ./scripts/prepare-droplet-icon.sh
 
           echo "==> Running official droppykit version, lint, build, strip, validate..."
+          sed -i '' 's/>\/dev\/null//g' "$RUNNER_TEMP/droppykit/Scripts/build-droplet.sh"
           (
             cd Droplet
             droppykit version

@@ -6,6 +6,9 @@ import CodeCatchCore
 import DroppyKit
 import SwiftUI
 
+/// Premium Apple Liquid Glass Notch Shelf Widget for AETHER.
+/// Matches Figma reference layout with K2D typography, green shield indicator, and exactly 4 controls:
+/// Top-right: Refresh & Settings. Bottom-left: Recent Emails & Clean Notch.
 struct AetherShelfWidgetView: View {
     @ObservedObject var droplet: AetherDroplet
     @ObservedObject var model: AetherAppModel
@@ -60,106 +63,168 @@ struct AetherShelfWidgetView: View {
         }
     }
 
+    // MARK: - Single Mode
+
     private var singleView: some View {
-        ShelfWidgetScaffold("AETHER", systemImage: "key.viewfinder") {
-            Button(model.isUnlocked ? "Lock" : "Unlock", systemImage: model.isUnlocked ? "lock.fill" : "lock.open.fill") {
-                if model.isUnlocked {
-                    model.vaultSession.lock()
-                } else {
-                    model.unlocked {}
-                }
-            }
+        VStack(alignment: .leading, spacing: 0) {
+            headerBar(compact: false)
 
-            Button {
-                model.boostSources()
-            } label: {
-                Image(systemName: "arrow.clockwise")
-            }
-            .help("Check mailboxes now")
+            contentView(compact: false)
+                .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity, alignment: .topLeading)
+                .padding(.top, metrics.sectionSpacing)
 
-            Button {
-                _ = droplet.openSettings()
-            } label: {
-                Image(systemName: "gearshape")
-            }
-            .help("Open AETHER Settings")
-        } content: {
-            DroppyWidgetTimeline(every: 1) { tickNow in
-                VStack(alignment: .leading, spacing: metrics.rowSpacing) {
-                    if let attention = attentionSummary {
-                        Button {
-                            droplet.openSettingsPage(
-                                AetherSettingsRoute.sources.rawValue,
-                                title: "Sources & accounts"
-                            )
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundStyle(.orange)
-                                Text(verbatim: attention)
-                                    .font(metrics.font(.caption))
-                                    .foregroundStyle(primaryInk)
-                                    .lineLimit(1)
-                                Spacer(minLength: 4)
-                                Image(systemName: "chevron.right")
-                                    .font(.caption2)
-                                    .foregroundStyle(secondaryInk)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                        .buttonStyle(.plain)
-                    }
-
-                    if !model.isUnlocked {
-                        lockedContent(compact: false)
-                    } else {
-                        let allItems = combinedItems(at: tickNow)
-                        if allItems.count > 1 || !query.isEmpty {
-                            DroppyShelfTextField("Search codes or Bitwarden…", text: $query)
-                        }
-
-                        if allItems.isEmpty {
-                            emptyContent(compact: false)
-                        } else {
-                            let displayed = query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                ? allItems
-                                : model.search.ranked(allItems, query: query, now: tickNow, secrets: true)
-
-                            if displayed.isEmpty {
-                                Text("No matches for \"\(query)\"")
-                                    .font(metrics.font(.caption))
-                                    .foregroundStyle(secondaryInk)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                            } else {
-                                ShelfWidgetRows(displayed, id: \.id, maximumRows: 10, scrollsWhenSingle: true) { item in
-                                    widgetRow(item: item, now: tickNow, compact: false)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        } footer: {
-            ShelfWidgetControlRow(footerControls)
+            footerBar(compact: false)
+                .padding(.top, metrics.rowSpacing)
         }
+        .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity, alignment: .topLeading)
+        .preference(key: ShelfWidgetHeaderPresenceKey.self, value: true)
     }
+
+    // MARK: - Split Mode
 
     private var splitView: some View {
-        ShelfWidgetScaffold("AETHER", systemImage: "key.viewfinder") {
-            Button("Settings", systemImage: "gearshape") {
-                _ = droplet.openSettings()
+        VStack(alignment: .leading, spacing: 0) {
+            headerBar(compact: true)
+
+            contentView(compact: true)
+                .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity, alignment: .bottomLeading)
+                .padding(.top, metrics.sectionSpacing)
+        }
+        .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity, alignment: .topLeading)
+        .preference(key: ShelfWidgetHeaderPresenceKey.self, value: true)
+    }
+
+    // MARK: - Header Bar
+
+    private func headerBar(compact: Bool) -> some View {
+        HStack(alignment: .center, spacing: 8) {
+            // Vibrant green shield with keyhole
+            AetherSVGIcon(
+                name: AetherSVGAssets.securitySafe,
+                fallbackSystemImage: "shield.lefthalf.filled",
+                size: 16
+            )
+            .foregroundStyle(Color(red: 0.35, green: 0.84, blue: 0.45))
+            .accessibilityHidden(true)
+
+            // Brand title in K2D custom typography
+            Text("AETHER")
+                .font(AetherTypography.brand(size: 15))
+                .tracking(0.8)
+                .foregroundStyle(Color.white)
+
+            Spacer(minLength: 8)
+
+            // Exactly 2 circular liquid glass buttons: Refresh & Settings
+            HStack(spacing: 8) {
+                AetherLiquidGlassButton(
+                    svgName: AetherSVGAssets.refreshCcw,
+                    fallbackSystemImage: "arrow.clockwise",
+                    tooltip: "Check mailboxes now",
+                    iconSize: 13,
+                    buttonSize: 28
+                ) {
+                    model.boostSources()
+                    model.monitor.checkAll()
+                }
+
+                AetherLiquidGlassButton(
+                    svgName: AetherSVGAssets.settings2,
+                    fallbackSystemImage: "slider.horizontal.3",
+                    tooltip: "AETHER Settings",
+                    iconSize: 13,
+                    buttonSize: 28
+                ) {
+                    _ = droplet.openSettings()
+                }
             }
-        } content: {
-            DroppyWidgetTimeline(every: 1) { tickNow in
+        }
+        .frame(height: 28)
+    }
+
+    // MARK: - Footer Bar
+
+    private func footerBar(compact: Bool) -> some View {
+        HStack(alignment: .center, spacing: 8) {
+            // Exactly 2 circular liquid glass buttons: Recent emails & Clean notch
+            AetherLiquidGlassButton(
+                svgName: AetherSVGAssets.recentlyOpened,
+                fallbackSystemImage: "clock.arrow.circlepath",
+                tooltip: "Unmatched recent emails",
+                iconSize: 14,
+                buttonSize: 28
+            ) {
+                droplet.openSettingsPage(
+                    AetherSettingsRoute.recovery.rawValue,
+                    title: "Unmatched emails"
+                )
+            }
+
+            AetherLiquidGlassButton(
+                svgName: AetherSVGAssets.urlCleaner,
+                fallbackSystemImage: "bubbles.and.sparkles",
+                tooltip: "Clean current notch display",
+                iconSize: 13,
+                buttonSize: 28
+            ) {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    model.clearNotchDisplay()
+                }
+            }
+
+            Spacer(minLength: 8)
+        }
+        .frame(height: 28)
+    }
+
+    // MARK: - Content View
+
+    @ViewBuilder
+    private func contentView(compact: Bool) -> some View {
+        DroppyWidgetTimeline(every: 1) { tickNow in
+            VStack(alignment: .leading, spacing: metrics.rowSpacing) {
+                if let attention = attentionSummary {
+                    Button {
+                        droplet.openSettingsPage(
+                            AetherSettingsRoute.sources.rawValue,
+                            title: "Sources & accounts"
+                        )
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.orange)
+                            Text(verbatim: attention)
+                                .font(metrics.font(.caption))
+                                .foregroundStyle(primaryInk)
+                                .lineLimit(1)
+                            Spacer(minLength: 4)
+                            Image(systemName: "chevron.right")
+                                .font(.caption2)
+                                .foregroundStyle(secondaryInk)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.plain)
+                }
+
                 if !model.isUnlocked {
-                    lockedContent(compact: true)
+                    lockedContent(compact: compact)
                 } else {
                     let allItems = combinedItems(at: tickNow)
+
                     if allItems.isEmpty {
-                        emptyContent(compact: true)
+                        emptyContent(compact: compact)
                     } else {
-                        ShelfWidgetRows(allItems, id: \.id, maximumRows: 2, scrollsWhenSingle: false) { item in
-                            widgetRow(item: item, now: tickNow, compact: true)
+                        let displayed = query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                            ? allItems
+                            : model.search.ranked(allItems, query: query, now: tickNow, secrets: true)
+
+                        if displayed.isEmpty {
+                            emptyContent(compact: compact)
+                        } else {
+                            ShelfWidgetRows(displayed, id: \.id, maximumRows: compact ? 2 : 4, scrollsWhenSingle: true) { item in
+                                widgetRow(item: item, now: tickNow, compact: compact)
+                            }
                         }
                     }
                 }
@@ -167,50 +232,19 @@ struct AetherShelfWidgetView: View {
         }
     }
 
-    private var footerControls: [ShelfWidgetControl] {
-        var controls: [ShelfWidgetControl] = []
-        if model.isUnlocked, let latest = model.latestCode {
-            controls.append(
-                ShelfWidgetControl("Copy Latest", systemImage: "doc.on.doc", tone: .accent(.blue)) {
-                    triggerPrimaryAction(latest)
-                }
-            )
-        } else if !model.isUnlocked {
-            controls.append(
-                ShelfWidgetControl("Unlock", systemImage: "touchid", tone: .accent(.blue)) {
-                    model.unlocked {}
-                }
-            )
-        }
-        controls.append(
-            ShelfWidgetControl("Recent Emails", systemImage: "envelope.badge.shield.half.filled") {
-                droplet.openSettingsPage(
-                    AetherSettingsRoute.recovery.rawValue,
-                    title: "Recent emails"
-                )
-            }
-        )
-        controls.append(
-            ShelfWidgetControl("Sources", systemImage: "tray.2") {
-                droplet.openSettingsPage(
-                    AetherSettingsRoute.sources.rawValue,
-                    title: "Sources & accounts"
-                )
-            }
-        )
-        return controls
-    }
+    // MARK: - Locked Content
 
     @ViewBuilder
     private func lockedContent(compact: Bool) -> some View {
-        VStack(alignment: .leading, spacing: metrics.rowSpacing) {
+        VStack(spacing: 8) {
+            Spacer(minLength: 0)
             HStack(spacing: 8) {
                 Image(systemName: "lock.fill")
+                    .font(.system(size: 14))
                     .foregroundStyle(.orange)
-                Text(model.latest != nil ? "Verification codes hidden while locked" : "AETHER is locked")
-                    .font(metrics.font(.body))
+                Text(model.latest != nil ? "Codes hidden while locked" : "AETHER is locked")
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
                     .foregroundStyle(primaryInk)
-                    .lineLimit(compact ? 2 : 1)
             }
             if !compact {
                 Button("Unlock to View Codes") {
@@ -224,24 +258,36 @@ struct AetherShelfWidgetView: View {
                     )
                 )
             }
+            Spacer(minLength: 0)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
+
+    // MARK: - Empty Content
 
     @ViewBuilder
     private func emptyContent(compact: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(model.receiving ? "Waiting for verification codes" : "Monitoring paused")
-                .font(metrics.font(.body))
-                .foregroundStyle(primaryInk)
-                .lineLimit(1)
+        VStack(spacing: 6) {
+            Spacer(minLength: 0)
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(Color(red: 0.35, green: 0.84, blue: 0.45).opacity(0.85))
+                    .frame(width: 6, height: 6)
+                Text(model.receiving ? "Waiting for verification codes" : "Monitoring paused")
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundStyle(Color.white.opacity(0.85))
+            }
             if !compact {
                 Text(model.receiving ? "Codes from Messages, Mail, and Bitwarden appear here." : "Enable sources in Droppy → Settings → AETHER.")
-                    .font(metrics.font(.caption))
-                    .foregroundStyle(secondaryInk)
-                    .lineLimit(2)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.white.opacity(0.50))
             }
+            Spacer(minLength: 0)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
+
+    // MARK: - Code Row
 
     @ViewBuilder
     private func widgetRow(
@@ -253,55 +299,49 @@ struct AetherShelfWidgetView: View {
         Button {
             triggerPrimaryAction(item)
         } label: {
-            HStack(spacing: 8) {
+            HStack(alignment: .center, spacing: 10) {
                 AetherServiceAvatar(
                     item: item,
                     icons: model.icons,
                     model: model,
-                    size: compact ? 20 : 26,
+                    size: compact ? 22 : 28,
                     showsOriginBadge: !compact
                 )
 
-                VStack(alignment: .leading, spacing: 1) {
-                    HStack(spacing: 5) {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
                         Text(verbatim: item.service)
-                            .font(metrics.font(.body))
-                            .foregroundStyle(primaryInk)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Color.white)
                             .lineLimit(1)
                         if !compact {
                             AetherVerificationBadge(item: item, size: 10)
                         }
-                        let origin = model.origination(item)
-                        if !compact && !origin.isEmpty {
-                            Text(verbatim: origin)
-                                .font(metrics.font(.caption))
-                                .foregroundStyle(secondaryInk)
-                                .lineLimit(1)
-                        }
                     }
-                    if !compact {
-                        let sub = rowSubtitle(for: item)
-                        if !sub.isEmpty {
-                            Text(verbatim: sub)
-                                .font(metrics.font(.caption))
-                                .foregroundStyle(item.hasFailedSenderAuth ? AnyShapeStyle(.orange) : AnyShapeStyle(secondaryInk))
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                        }
+
+                    let sub = rowSubtitle(for: item)
+                    if !sub.isEmpty {
+                        Text(verbatim: sub)
+                            .font(.system(size: 11))
+                            .foregroundStyle(item.hasFailedSenderAuth ? AnyShapeStyle(.orange) : AnyShapeStyle(Color.white.opacity(0.70)))
+                            .lineLimit(1)
+                            .truncationMode(.middle)
                     }
                 }
-                Spacer(minLength: 6)
+
+                Spacer(minLength: 8)
+
                 if item.isLink {
                     Image(systemName: copiedID == item.id ? "checkmark.circle.fill" : "arrow.up.right.square")
-                        .font(.system(size: compact ? 13 : 14, weight: .semibold))
+                        .font(.system(size: compact ? 13 : 15, weight: .semibold))
                         .foregroundStyle(copiedID == item.id ? .green : .teal)
                         .id(copiedID == item.id)
                         .transition(DroppyTransition.element)
                 } else {
-                    HStack(spacing: 5) {
+                    HStack(spacing: 6) {
                         if copiedID == item.id {
                             Label("Copied", systemImage: "checkmark.circle.fill")
-                                .font(metrics.font(.caption))
+                                .font(.system(size: 12, weight: .semibold))
                                 .foregroundStyle(.green)
                                 .transition(DroppyTransition.element)
                         } else {
@@ -309,17 +349,20 @@ struct AetherShelfWidgetView: View {
                                 code: item.code,
                                 locked: !model.isUnlocked,
                                 concealed: concealed,
-                                fontSize: compact ? 13 : 15
+                                fontSize: compact ? 14 : 17
                             )
-                            .foregroundStyle(primaryInk)
+                            .foregroundStyle(Color.white)
                             .transition(DroppyTransition.element)
                         }
+
                         if item.expires > now {
                             AetherExpiryRing(item: item, now: now, size: compact ? 12 : 14)
                         }
                     }
                 }
             }
+            .padding(.horizontal, 4)
+            .padding(.vertical, 6)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -360,7 +403,7 @@ struct AetherShelfWidgetView: View {
     }
 
     private func combinedItems(at date: Date) -> [CodeItem] {
-        let liveItems = model.items
+        let liveItems = model.items.filter { !model.notchDismissedIDs.contains($0.id) }
         let vaultItems = model.isOn(AetherPrefs.bitwarden) ? model.vault.compactMap { CodeItem($0, at: date) } : []
         if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             let shortcuts = model.search.shortcuts(from: vaultItems)

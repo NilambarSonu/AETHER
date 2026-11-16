@@ -60,10 +60,9 @@ struct AetherCodeContextMenu: View {
 extension AetherAppModel {
     func boolBinding(_ key: String) -> Binding<Bool> {
         Binding(
-            get: { self.defaults.bool(forKey: key) },
+            get: { self.isOn(key) },
             set: { value in
-                self.objectWillChange.send()
-                self.defaults.set(value, forKey: key)
+                self.set(key, on: value)
             }
         )
     }
