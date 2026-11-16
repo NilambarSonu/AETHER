@@ -12,15 +12,13 @@ struct PrivacySettingsPage: View {
     var body: some View {
         DropletSettingsPage {
             DropletSettingsSection {
-                settingsSectionHeader("Device authentication")
+                settingsSectionHeader("Access")
             } content: {
                 DropletSettingsCard {
-                    AetherSettingsToggleRow(
-                        title: "Ask for \(DeviceAuthentication.supportsTouchID() ? "Touch ID" : "your password") to show codes",
+                    DropletToggleRow(
+                        title: "Require Touch ID to view codes",
                         icon: "touchid",
                         iconColor: .pink,
-                        topColor: .red,
-                        infoTip: "Locks vault and code viewing whenever Mac sleeps or restarts; the policy itself is AES-256-GCM authenticated in Keychain.",
                         isOn: Binding(
                             get: { !model.isOn(AetherPrefs.unlockWithMac) },
                             set: { ask in Task { await model.setUnlockWithMac(!ask) } }
@@ -30,138 +28,109 @@ struct PrivacySettingsPage: View {
             }
 
             DropletSettingsSection {
-                settingsSectionHeader("On screen & notch")
+                settingsSectionHeader("On screen")
             } content: {
                 DropletSettingsCard {
-                    AetherSettingsToggleRow(
+                    DropletToggleRow(
                         title: "Hide from screen capture",
                         icon: "rectangle.dashed.badge.record",
                         iconColor: .red,
-                        infoTip: "Masks active code panels, notch sheets, and recovery emails during screen sharing and recording.",
                         isOn: model.boolBinding(AetherPrefs.hideFromCapture)
                     )
 
-                    AetherSettingsToggleRow(
+                    DropletToggleRow(
                         title: "Hide codes until hover",
                         icon: "eye.slash.fill",
                         iconColor: .indigo,
-                        infoTip: "Blurs OTP digits across shelf rows and menus until your pointer hovers them.",
                         isOn: model.boolBinding(AetherPrefs.blurCodes)
                     )
 
-                    AetherSettingsToggleRow(
-                        title: "Show compact notch chip",
-                        icon: "menubar.rectangle",
-                        iconColor: .gray,
-                        topColor: Color(white: 0.48),
-                        infoTip: "Shows a compact chip with the sender icon and code beside the notch until copied or used.",
-                        isOn: model.boolBinding(AetherPrefs.codeInMenuBar)
-                    )
-
-                    AetherSettingsToggleRow(
+                    DropletToggleRow(
                         title: "Show message previews",
                         icon: "text.bubble.fill",
                         iconColor: .green,
-                        infoTip: "Shows the sender address, subject, or message excerpt in the notch HUD, shelf, and banner.",
                         isOn: model.boolBinding(AetherPrefs.showPreviews)
                     )
                 }
             }
 
             DropletSettingsSection {
-                settingsSectionHeader("Clipboard & brand icons")
+                settingsSectionHeader("Clipboard")
             } content: {
                 DropletSettingsCard {
-                    AetherSettingsToggleRow(
+                    DropletToggleRow(
                         title: "Auto-clear copied codes",
                         icon: "clock.arrow.circlepath",
                         iconColor: .orange,
-                        infoTip: "Marks copied codes concealed & local-only (skipping Universal Clipboard) and wipes them automatically after the chosen delay.",
                         isOn: model.boolBinding(AetherPrefs.clearClipboard)
                     )
 
                     if model.isOn(AetherPrefs.clearClipboard) {
-                        Picker(selection: model.intBinding(AetherPrefs.clipboardTTL)) {
-                            Text("30 Seconds").tag(30)
-                            Text("60 Seconds").tag(60)
-                            Text("90 Seconds").tag(90)
-                            Text("2 Minutes").tag(120)
-                            Text("5 Minutes").tag(300)
-                        } label: {
-                            AetherRowLabel(
-                                title: "Clear clipboard after",
-                                icon: "timer",
-                                color: .orange
-                            )
+                        DropletGroupedPickerRow(
+                            title: "Clear after",
+                            icon: "timer",
+                            iconColor: .orange
+                        ) {
+                            Picker("Clear after", selection: model.intBinding(AetherPrefs.clipboardTTL)) {
+                                Text("30 seconds").tag(30)
+                                Text("60 seconds").tag(60)
+                                Text("90 seconds").tag(90)
+                                Text("2 minutes").tag(120)
+                                Text("5 minutes").tag(300)
+                            }
                         }
 
-                        AetherSettingsToggleRow(
+                        DropletToggleRow(
                             title: "Restore previous clipboard",
-                            subtitle: "Replaces your earlier text, link, or image cleanly after the code expires.",
                             icon: "arrow.uturn.backward.circle.fill",
                             iconColor: .blue,
-                            infoTip: "Captures safe non-concealed items before copying an OTP; hard wipes still occur if your Mac locks or history is cleared.",
                             isOn: model.boolBinding(AetherPrefs.restoreClipboard)
                         )
                     }
 
-                    AetherSettingsToggleRow(
-                        title: "Block auto-copy on unverified mail",
-                        subtitle: "Requires manual confirmation when DMARC domain verification explicitly fails.",
+                    DropletToggleRow(
+                        title: "Confirm unverified emails",
                         icon: "exclamationmark.shield.fill",
                         iconColor: .red,
-                        infoTip: "Protects your clipboard and auto-type from spoofed phishing emails while still showing the warning in the notch.",
+                        subtitle: "Ask before copying codes from emails that fail sender checks.",
                         isOn: model.boolBinding(AetherPrefs.blockUnverifiedAutoCopy)
-                    )
-
-                    AetherSettingsToggleRow(
-                        title: "Fetch HD website brand logos",
-                        subtitle: "Uses local brand tiles when off; caches fetched icons under opaque HMAC hashes when on.",
-                        icon: "app.badge.fill",
-                        iconColor: .purple,
-                        infoTip: "Disabled by default so domains never leave this Mac. Enable to fetch high-resolution brand favicons via cookie-free HTTPS proxies.",
-                        isOn: model.boolBinding(AetherPrefs.serviceIcons)
                     )
                 }
             }
 
             DropletSettingsSection {
-                settingsSectionHeader("Memory & retention")
+                settingsSectionHeader("History")
             } content: {
                 DropletSettingsCard {
-                    let historyBinding = model.intBinding(AetherPrefs.historyDays)
-                    Picker(selection: historyBinding) {
-                        Text("1 Day").tag(1)
-                        Text("7 Days").tag(7)
-                        Text("30 Days").tag(30)
-                    } label: {
-                        AetherRowLabel(
-                            title: "Keep recent codes for",
-                            subtitle: "Codes stay strictly in RAM and are never written to any database.",
-                            icon: "clock.fill",
-                            color: .teal
-                        )
-                    }
-                    .onChange(of: model.defaults.integer(forKey: AetherPrefs.historyDays)) { _, _ in
-                        model.restartMessages()
-                        model.restartMail()
+                    DropletGroupedPickerRow(
+                        title: "Keep codes for",
+                        icon: "clock.fill",
+                        iconColor: .teal
+                    ) {
+                        Picker("Keep codes for", selection: model.intBinding(AetherPrefs.historyDays)) {
+                            Text("1 day").tag(1)
+                            Text("7 days").tag(7)
+                            Text("30 days").tag(30)
+                        }
+                        .onChange(of: model.defaults.integer(forKey: AetherPrefs.historyDays)) { _, _ in
+                            model.restartMessages()
+                            model.restartMail()
+                        }
                     }
 
-                    AetherSettingsToggleRow(
-                        title: "Clear history when Mac locks",
+                    DropletToggleRow(
+                        title: "Clear when Mac locks",
                         icon: "lock.fill",
                         iconColor: .blue,
-                        infoTip: "Wipes volatile OTP memory, recovery emails, OAuth RAM caches, and pasteboard immediately on screen lock.",
                         isOn: model.boolBinding(AetherPrefs.clearOnLock)
                     )
 
-                    AetherSettingsControlRow(
-                        title: "Clear caught history",
+                    DropletControlRow(
+                        title: "Clear history",
                         icon: "trash.fill",
-                        iconColor: .gray,
-                        infoTip: "Clears recent codes and unmatched emails right now while keeping Bitwarden TOTP seeds in Keychain."
+                        iconColor: .secondary
                     ) {
-                        Button("Clear Now…") {
+                        Button("Clear…") {
                             let confirmed = DropletConfirmationDialog.present(
                                 title: "Clear caught history?",
                                 message: "AETHER clears all caught codes and recent emails from memory. Bitwarden keys and mail accounts stay saved.",
@@ -173,8 +142,28 @@ struct PrivacySettingsPage: View {
                             }
                         }
                         .buttonStyle(.bordered)
+                        .controlSize(.small)
                         .disabled(!model.hasHistory)
                     }
+                }
+
+                Text("Codes stay in memory only and are never saved to disk.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.leading, DroppySettingsLayoutMetrics.sectionHeaderLeadingInset)
+            }
+
+            DropletSettingsSection {
+                settingsSectionHeader("Network")
+            } content: {
+                DropletSettingsCard {
+                    DropletToggleRow(
+                        title: "Download sender logos",
+                        icon: "app.badge.fill",
+                        iconColor: .purple,
+                        subtitle: "Off uses built-in icons.",
+                        isOn: model.boolBinding(AetherPrefs.serviceIcons)
+                    )
                 }
             }
         }
