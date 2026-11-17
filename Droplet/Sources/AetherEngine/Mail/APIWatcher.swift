@@ -193,10 +193,19 @@ public enum APIWatcher {
                 cursor = nil
             } catch {
                 if Task.isCancelled { break }
-                let signInFailed = error is MailOAuth.Failure
+                let isLock = (error as? AetherSecretStore.Failure)?.isTransientLock == true
+                let isTokenExpired: Bool = {
+                    if case MailOAuth.Failure.token(let why) = error {
+                        return why.contains("invalid_grant") || why.contains("expired")
+                    }
+                    return false
+                }()
+                let signInFailed = !isLock && (isTokenExpired || error is MailOAuth.Failure)
+                let statusMsg = isLock ? "Unlocking Keychain…" : (signInFailed ? SourceStatus.signInExpired : MailWatcher.describe(error))
                 await MailWatcher.wait(
-                    after: signInFailed ? SourceStatus.signInExpired : MailWatcher.describe(error),
+                    after: statusMsg,
                     signIn: signInFailed,
+                    isTransientLock: isLock,
                     backoff: &backoff,
                     status: status,
                     event: event

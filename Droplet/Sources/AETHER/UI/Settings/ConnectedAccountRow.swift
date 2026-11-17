@@ -22,7 +22,11 @@ struct ConnectedAccountRow: View {
         if !account.enabled {
             return "Paused"
         }
-        if status.needsSignIn || !account.hasCredential(in: model.secrets) {
+        let credState = account.credentialState(in: model.secrets)
+        if credState == .locked {
+            return "Connecting…"
+        }
+        if status.needsSignIn || credState == .missing {
             return "Needs sign-in"
         }
         switch status {
@@ -39,7 +43,11 @@ struct ConnectedAccountRow: View {
         if !account.enabled {
             return .secondary
         }
-        if status.needsSignIn || !account.hasCredential(in: model.secrets) {
+        let credState = account.credentialState(in: model.secrets)
+        if credState == .locked {
+            return .secondary
+        }
+        if status.needsSignIn || credState == .missing {
             return .orange
         }
         return .secondary
@@ -80,7 +88,7 @@ struct ConnectedAccountRow: View {
                         onEdit()
                     }
 
-                    if status.needsSignIn || !account.hasCredential(in: model.secrets) {
+                    if (status.needsSignIn || !account.hasCredential(in: model.secrets)) && account.credentialState(in: model.secrets) != .locked {
                         Button("Sign in again") {
                             (onSignInAgain ?? onEdit)()
                         }

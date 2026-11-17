@@ -9,9 +9,28 @@ import Security
 public final class AetherSecretStore: @unchecked Sendable {
     public struct Failure: LocalizedError, Sendable {
         public let status: OSStatus
-        public var errorDescription: String? {
-            "Couldn't use your Keychain (\(status)). Try again."
+        public var isTransientLock: Bool {
+            AetherSecretStore.isTransientLockStatus(status)
         }
+        public var errorDescription: String? {
+            if isTransientLock {
+                return "Keychain is locked while the Mac starts up. Unlocking automatically…"
+            }
+            return "Couldn't use your Keychain (\(status)). Try again."
+        }
+    }
+
+    public enum CredentialState: Equatable, Sendable {
+        case present(String)
+        case missing
+        case locked(OSStatus)
+    }
+
+    public static func isTransientLockStatus(_ status: OSStatus) -> Bool {
+        status == errSecInteractionNotAllowed // -25308: interaction not allowed (locked at login)
+            || status == errSecAuthFailed     // -25293: auth failed (login unlock in progress)
+            || status == errSecNotAvailable   // -25291: keychain service not available yet
+            || status == -128                 // user canceled / prompt not ready
     }
 
     private enum Backend: @unchecked Sendable {
@@ -42,6 +61,30 @@ public final class AetherSecretStore: @unchecked Sendable {
 
     public static func inMemory() -> AetherSecretStore {
         AetherSecretStore(memoryBox: MemoryBox())
+    }
+
+    public func credentialState(_ account: String) -> CredentialState {
+        if let memoryBox {
+            return memoryBox.lock.withLock {
+                if let val = memoryBox.values[account] { return .present(val) }
+                return .missing
+            }
+        }
+        guard case .keychain(let service) = backend else { return .missing }
+        var q = Self.query(account, service: service)
+        q[kSecReturnData as String] = true
+        var data: CFTypeRef?
+        let status = SecItemCopyMatching(q as CFDictionary, &data)
+        if status == errSecSuccess, let raw = data as? Data, let val = String(data: raw, encoding: .utf8) {
+            return .present(val)
+        }
+        if status == errSecItemNotFound {
+            return .missing
+        }
+        if Self.isTransientLockStatus(status) {
+            return .locked(status)
+        }
+        return .missing
     }
 
     public func get(_ account: String) -> String? {

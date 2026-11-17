@@ -54,11 +54,32 @@ public struct MailAccount: Codable, Identifiable, Hashable, Sendable {
         Self.readSecret(key: secretKey, in: secrets)
     }
 
-    public func hasCredential(in secrets: AetherSecretStore = .keychain) -> Bool {
+    public enum CredentialState: Equatable, Sendable {
+        case present
+        case missing
+        case locked(OSStatus)
+    }
+
+    public func credentialState(in secrets: AetherSecretStore = .keychain) -> CredentialState {
         if usesSignIn {
-            return secrets.get(refreshTokenKey) != nil || secrets.get(legacyRefreshTokenKey) != nil
+            let primary = secrets.credentialState(refreshTokenKey)
+            if case .present = primary { return .present }
+            let legacy = secrets.credentialState(legacyRefreshTokenKey)
+            if case .present = legacy { return .present }
+            if case .locked(let status) = primary { return .locked(status) }
+            if case .locked(let status) = legacy { return .locked(status) }
+            return .missing
         }
-        return secrets.get(secretKey) != nil
+        let state = secrets.credentialState(secretKey)
+        switch state {
+        case .present: return .present
+        case .missing: return .missing
+        case .locked(let s): return .locked(s)
+        }
+    }
+
+    public func hasCredential(in secrets: AetherSecretStore = .keychain) -> Bool {
+        credentialState(in: secrets) == .present
     }
 
     public func activeRefreshTokenKey(in secrets: AetherSecretStore = .keychain) -> String {

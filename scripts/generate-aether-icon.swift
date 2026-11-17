@@ -24,7 +24,13 @@ guard FileManager.default.fileExists(atPath: cardURL.path) else {
     exit(1)
 }
 
-print("==> Rendering 1024x1024 Master Liquid Glass Squircle Icon for AETHER...")
+guard let walletImg = NSImage(contentsOf: cardURL),
+      let cgWallet = walletImg.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+    print("ERROR: Failed to load CGImage from \(cardURL.path)")
+    exit(1)
+}
+
+print("==> 1. Rendering 1024x1024 Master Liquid Glass Squircle Icon (aether.png)...")
 
 let size: CGFloat = 1024
 let rep = NSBitmapImageRep(
@@ -57,8 +63,8 @@ ctx.addPath(squirclePath)
 ctx.clip()
 
 // 3. Draw gradient background matching Settings header squircle:
-// Top: display-p3 0.17255, 0.14510, 0.22745 (~ sRGB 0.184, 0.141, 0.243)
-// Bottom: display-p3 0.08627, 0.09020, 0.13333 (~ sRGB 0.086, 0.090, 0.137)
+// Top: display-p3 0.18431, 0.14118, 0.24314
+// Bottom: display-p3 0.08627, 0.09020, 0.13725
 let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)!
 let topComponents: [CGFloat] = [0.184, 0.141, 0.243, 1.0]
 let bottomComponents: [CGFloat] = [0.086, 0.090, 0.137, 1.0]
@@ -86,18 +92,15 @@ ctx.drawLinearGradient(strokeGrad, start: CGPoint(x: size/2, y: size), end: CGPo
 ctx.restoreGState()
 
 // 5. Draw 3D wallet card centered at 84% scale
-if let walletImg = NSImage(contentsOf: cardURL),
-   let cgWallet = walletImg.cgImage(forProposedRect: nil, context: nil, hints: nil) {
-    let walletScale: CGFloat = 0.84
-    let walletSide = size * walletScale
-    let walletRect = CGRect(
-        x: (size - walletSide) / 2,
-        y: (size - walletSide) / 2,
-        width: walletSide,
-        height: walletSide
-    )
-    ctx.draw(cgWallet, in: walletRect)
-}
+let walletScale: CGFloat = 0.84
+let walletSide = size * walletScale
+let walletRect = CGRect(
+    x: (size - walletSide) / 2,
+    y: (size - walletSide) / 2,
+    width: walletSide,
+    height: walletSide
+)
+ctx.draw(cgWallet, in: walletRect)
 
 ctx.restoreGState()
 NSGraphicsContext.restoreGraphicsState()
@@ -115,12 +118,15 @@ print("  ✓ Wrote 1024x1024 squircle to \(targetAetherPNG.path)")
 try? FileManager.default.removeItem(at: iconDir)
 try! FileManager.default.createDirectory(at: iconAssetsDir, withIntermediateDirectories: true)
 
-// Downsample to 512x512 for mark.png
-let masterImg = NSImage(data: masterPNG)!
-let rep512 = NSBitmapImageRep(
+print("==> 2. Rendering 512x512 Glyph Mark for AETHER.icon/Assets/mark.png...")
+
+// Render ONLY the 3D wallet glyph mark on transparent canvas for AETHER.icon
+// (DropletIconRenderer will composite the fill-specializations gradient behind it!)
+let markSize: CGFloat = 512
+let markRep = NSBitmapImageRep(
     bitmapDataPlanes: nil,
-    pixelsWide: 512,
-    pixelsHigh: 512,
+    pixelsWide: Int(markSize),
+    pixelsHigh: Int(markSize),
     bitsPerSample: 8,
     samplesPerPixel: 4,
     hasAlpha: true,
@@ -131,19 +137,47 @@ let rep512 = NSBitmapImageRep(
 )!
 
 NSGraphicsContext.saveGraphicsState()
-NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep512)
+let markCtx = NSGraphicsContext(bitmapImageRep: markRep)!.cgContext
+NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: markRep)
 NSGraphicsContext.current!.imageInterpolation = .high
-masterImg.draw(in: NSRect(x: 0, y: 0, width: 512, height: 512))
+
+markCtx.clear(CGRect(x: 0, y: 0, width: markSize, height: markSize))
+let markSide = markSize * 0.86
+let markRect = CGRect(
+    x: (markSize - markSide) / 2,
+    y: (markSize - markSide) / 2,
+    width: markSide,
+    height: markSide
+)
+markCtx.draw(cgWallet, in: markRect)
 NSGraphicsContext.restoreGraphicsState()
 
-let png512 = rep512.representation(using: .png, properties: [:])!
-try! png512.write(to: targetMarkPNG)
-print("  ✓ Wrote 512x512 squircle mark to \(targetMarkPNG.path)")
+let markPNG = markRep.representation(using: .png, properties: [:])!
+try! markPNG.write(to: targetMarkPNG)
+print("  ✓ Wrote 512x512 transparent 3D wallet mark to \(targetMarkPNG.path)")
 
-// Write icon.json with fill-specializations: [] so DropletIconRenderer leaves outer canvas transparent
+// Write icon.json WITH official fill-specializations gradient and mark layer
 let iconJSON = """
 {
-  "fill-specializations" : [ ],
+  "fill-specializations" : [
+    {
+      "value" : {
+        "linear-gradient" : [
+          "display-p3:0.18431,0.14118,0.24314,1.00000",
+          "display-p3:0.08627,0.09020,0.13725,1.00000"
+        ]
+      }
+    },
+    {
+      "appearance" : "dark",
+      "value" : {
+        "linear-gradient" : [
+          "display-p3:0.18431,0.14118,0.24314,1.00000",
+          "display-p3:0.08627,0.09020,0.13725,1.00000"
+        ]
+      }
+    }
+  ],
   "groups" : [
     {
       "layers" : [
@@ -152,7 +186,7 @@ let iconJSON = """
           "image-name" : "mark.png",
           "name" : "placeholder",
           "position" : {
-            "scale" : 1.0,
+            "scale" : 0.86,
             "translation-in-points" : [ 0, 0 ]
           }
         }
@@ -168,7 +202,85 @@ let iconJSON = """
 }
 """
 try! iconJSON.write(to: targetIconJSON, atomically: true, encoding: .utf8)
-print("  ✓ Wrote icon.json to \(targetIconJSON.path)")
+print("  ✓ Wrote icon.json with liquid glass fill-specializations to \(targetIconJSON.path)")
+
+print("==> 3. Rendering Apple Standard macOS AppIcon for AETHER.icns...")
+
+// Apple macOS Big Sur+ app icon standard:
+// Canvas: 1024x1024
+// Squircle: 824x824 inset centered (100pt margins)
+// Continuous squircle radius: 824 * 0.2237 = 184.329pt
+// Smooth drop shadow: offset (0, -12), blur 24, alpha 0.36
+// Outside: 100% transparent.
+let icnsMasterRep = NSBitmapImageRep(
+    bitmapDataPlanes: nil,
+    pixelsWide: 1024,
+    pixelsHigh: 1024,
+    bitsPerSample: 8,
+    samplesPerPixel: 4,
+    hasAlpha: true,
+    isPlanar: false,
+    colorSpaceName: .deviceRGB,
+    bytesPerRow: 0,
+    bitsPerPixel: 0
+)!
+
+NSGraphicsContext.saveGraphicsState()
+let icnsCtx = NSGraphicsContext(bitmapImageRep: icnsMasterRep)!.cgContext
+NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: icnsMasterRep)
+NSGraphicsContext.current!.imageInterpolation = .high
+
+icnsCtx.clear(CGRect(x: 0, y: 0, width: 1024, height: 1024))
+
+let squircleSide: CGFloat = 824
+let squircleOrigin: CGFloat = (1024 - squircleSide) / 2 // 100pt
+let squircleRect = CGRect(x: squircleOrigin, y: squircleOrigin, width: squircleSide, height: squircleSide)
+let squircleRadius: CGFloat = squircleSide * 0.2237 // ~184.3pt
+let icnsPath = CGPath(roundedRect: squircleRect, cornerWidth: squircleRadius, cornerHeight: squircleRadius, transform: nil)
+
+// Draw Apple standard drop shadow
+icnsCtx.saveGState()
+let shadowColor = CGColor(colorSpace: colorSpace, components: [0.0, 0.0, 0.0, 0.38])!
+icnsCtx.setShadow(offset: CGSize(width: 0, height: -12), blur: 24, color: shadowColor)
+icnsCtx.addPath(icnsPath)
+icnsCtx.setFillColor(CGColor(colorSpace: colorSpace, components: [0.086, 0.090, 0.137, 1.0])!)
+icnsCtx.fillPath()
+icnsCtx.restoreGState()
+
+// Clip to squircle for gradient, stroke, and wallet
+icnsCtx.saveGState()
+icnsCtx.addPath(icnsPath)
+icnsCtx.clip()
+
+// Gradient fill
+icnsCtx.drawLinearGradient(gradient, start: CGPoint(x: 512, y: squircleOrigin + squircleSide), end: CGPoint(x: 512, y: squircleOrigin), options: [])
+
+// Inner specular rim
+let icnsStrokeRect = squircleRect.insetBy(dx: 1.0, dy: 1.0)
+let icnsStrokePath = CGPath(roundedRect: icnsStrokeRect, cornerWidth: squircleRadius - 1.0, cornerHeight: squircleRadius - 1.0, transform: nil)
+icnsCtx.saveGState()
+icnsCtx.addPath(icnsStrokePath)
+icnsCtx.setLineWidth(2.0)
+icnsCtx.replacePathWithStrokedPath()
+icnsCtx.clip()
+icnsCtx.drawLinearGradient(strokeGrad, start: CGPoint(x: 512, y: squircleOrigin + squircleSide), end: CGPoint(x: 512, y: squircleOrigin), options: [])
+icnsCtx.restoreGState()
+
+// Draw 3D wallet card centered inside squircle at 84% scale
+let icnsWalletSide = squircleSide * 0.84
+let icnsWalletRect = CGRect(
+    x: squircleOrigin + (squircleSide - icnsWalletSide) / 2,
+    y: squircleOrigin + (squircleSide - icnsWalletSide) / 2,
+    width: icnsWalletSide,
+    height: icnsWalletSide
+)
+icnsCtx.draw(cgWallet, in: icnsWalletRect)
+
+icnsCtx.restoreGState()
+NSGraphicsContext.restoreGraphicsState()
+
+let icnsMasterPNG = icnsMasterRep.representation(using: .png, properties: [:])!
+let icnsMasterImg = NSImage(data: icnsMasterPNG)!
 
 // Generate official macOS AETHER.icns via iconutil
 let iconsetDir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("AETHER.iconset")
@@ -205,7 +317,7 @@ for (px, name) in iconSizes {
     NSGraphicsContext.saveGraphicsState()
     NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: sRep)
     NSGraphicsContext.current!.imageInterpolation = .high
-    masterImg.draw(in: NSRect(x: 0, y: 0, width: px, height: px))
+    icnsMasterImg.draw(in: NSRect(x: 0, y: 0, width: px, height: px))
     NSGraphicsContext.restoreGraphicsState()
     let sPNG = sRep.representation(using: .png, properties: [:])!
     try! sPNG.write(to: outURL)
@@ -218,7 +330,7 @@ try! iconutil.run()
 iconutil.waitUntilExit()
 
 if iconutil.terminationStatus == 0 {
-    print("  ✓ Compiled official AETHER.icns to \(targetICNS.path)")
+    print("  ✓ Compiled official Apple-standard AETHER.icns to \(targetICNS.path)")
 } else {
     print("  WARNING: iconutil exited with code \(iconutil.terminationStatus)")
 }

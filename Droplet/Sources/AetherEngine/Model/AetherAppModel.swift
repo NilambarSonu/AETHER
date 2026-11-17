@@ -242,6 +242,7 @@ public final class AetherAppModel: ObservableObject {
             items.removeAll { $0.received < cutoff }
         }
         recovery.prune(at: now)
+        monitor.autoRecoverIfNeeded()
     }
 
     private func liveActivitySignature(at date: Date) -> (code: UUID?, recent: Bool) {

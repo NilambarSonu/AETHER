@@ -45,12 +45,14 @@ public final class SourceMonitor: ObservableObject {
     private var network: (online: Bool, interfaces: [String])?
     private let watchMail: (MailAccount, Callbacks) async -> Void
     private let hasCredential: (MailAccount) -> Bool
+    private let credentialState: ((MailAccount) -> MailAccount.CredentialState)?
 
     public init(
         defaults: UserDefaults,
         secrets: AetherSecretStore = .keychain,
         watchMail: ((MailAccount, Callbacks) async -> Void)? = nil,
-        hasCredential: ((MailAccount) -> Bool)? = nil
+        hasCredential: ((MailAccount) -> Bool)? = nil,
+        credentialState: ((MailAccount) -> MailAccount.CredentialState)? = nil
     ) {
         self.defaults = defaults
         self.secrets = secrets
@@ -84,6 +86,7 @@ public final class SourceMonitor: ObservableObject {
                 }
             }
         self.hasCredential = hasCredential ?? { $0.hasCredential(in: secrets) }
+        self.credentialState = credentialState
     }
 
     deinit {
@@ -205,10 +208,46 @@ public final class SourceMonitor: ObservableObject {
         let previous = network
         network = (online, interfaces)
         guard let previous else {
-            if !online { restartMail(accounts, resuming: true) }
+            if online {
+                autoRecoverIfNeeded()
+            } else {
+                restartMail(accounts, resuming: true)
+            }
             return
         }
-        if previous.online != online || previous.interfaces != interfaces { restartMail(accounts, resuming: true) }
+        if previous.online != online || previous.interfaces != interfaces {
+            if online {
+                autoRecoverIfNeeded()
+            }
+            restartMail(accounts, resuming: true)
+        }
+    }
+
+    /// Automatically detects unlocked Keychain, restored network connectivity, or idle watchers
+    /// and seamlessly brings them live without requiring manual settings toggles.
+    public func autoRecoverIfNeeded() {
+        guard receiving else { return }
+        for account in accounts where account.enabled {
+            let key = account.id.uuidString
+            let credState: MailAccount.CredentialState = {
+                if let customState = credentialState?(account) { return customState }
+                if hasCredential(account) { return .present }
+                return account.credentialState(in: secrets)
+            }()
+
+            if tasks[key] == nil {
+                if credState == .present && network?.online != false {
+                    restart(account, resuming: true)
+                } else if case .locked = credState {
+                    health[key]?.status = .connecting
+                }
+            } else if case .failed(let failure) = health[key]?.status,
+                      failure.contains("network") || failure.contains("reach") || failure.contains("Keychain") {
+                if network?.online != false && credState == .present {
+                    restart(account, resuming: true)
+                }
+            }
+        }
     }
 
     private func restart(_ account: MailAccount, resuming: Bool = false) {
@@ -218,10 +257,25 @@ public final class SourceMonitor: ObservableObject {
         let wakeSignal = PollWakeSignal()
         let callbacks = begin(key, resuming: resuming, wakeSignal: wakeSignal)
         guard receiving, account.enabled else { return }
-        guard hasCredential(account) else {
+
+        let credState: MailAccount.CredentialState = {
+            if let customState = credentialState?(account) { return customState }
+            if hasCredential(account) { return .present }
+            return account.credentialState(in: secrets)
+        }()
+
+        switch credState {
+        case .missing:
             health[key]?.status = .attention(SourceStatus.needsSignIn)
             return
+        case .locked:
+            // Keychain transiently locked during Mac startup/login; show connecting and auto-recover
+            health[key]?.status = .connecting
+            return
+        case .present:
+            break
         }
+
         guard network?.online != false else {
             health[key]?.status = .attention(SourceStatus.waitingForNetwork)
             return

@@ -254,6 +254,10 @@ public struct MailOAuth: Sendable {
             throw Failure.notConfigured(name)
         }
         if let hit = Self.lock.withLock({ Self.cache[key] }), hit.expires > Date().addingTimeInterval(60) { return hit.token }
+        let cred = secrets.credentialState(key)
+        if case .locked(let status) = cred {
+            throw AetherSecretStore.Failure(status: status)
+        }
         guard let stored = try secrets.read(key) else { throw Failure.token("no refresh token") }
         let refresh: String
         if AetherVaultCrypto.isSealed(stored) {

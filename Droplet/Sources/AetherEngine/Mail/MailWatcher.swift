@@ -128,19 +128,30 @@ public enum MailWatcher {
     public static func wait(
         after failure: String,
         signIn: Bool,
+        isTransientLock: Bool = false,
         backoff: inout TimeInterval,
         status: @MainActor (SourceStatus) -> Void,
         event: @MainActor (SourceEvent) -> Void
     ) async {
+        if isTransientLock {
+            await status(.connecting)
+            let delay: TimeInterval = 1.5
+            await event(.retry(Date().addingTimeInterval(delay)))
+            try? await Task.sleep(for: .seconds(delay))
+            return
+        }
         await status(.failed(failure))
-        let delay = signIn ? 300 : backoff
+        let delay = signIn ? 30 : backoff
         await event(.retry(Date().addingTimeInterval(delay)))
         try? await Task.sleep(for: .seconds(delay))
-        backoff = min(backoff * 2, 120)
+        backoff = min(backoff * 2, 60)
     }
 
     public static func describe(_ error: Error) -> String {
-        switch error {
+        if let failure = error as? AetherSecretStore.Failure, failure.isTransientLock {
+            return "Unlocking Keychain…"
+        }
+        return switch error {
         case NWError.dns: "Can't find the mail server. Check its name."
         case NWError.posix(.ECONNREFUSED): "The mail server refused the connection. Check its name and port."
         case NWError.tls: "Can't make a secure connection to the mail server."
