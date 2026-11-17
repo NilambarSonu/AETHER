@@ -59,6 +59,16 @@ import Testing
         return fd
     }
 
+    // Helper to wait until client adopts connection
+    private func waitForClientConnection(_ server: AetherIPCTransportServer, timeoutSeconds: Double = 2.0) async -> Bool {
+        let deadline = Date().addingTimeInterval(timeoutSeconds)
+        while Date() < deadline {
+            if await server.isClientConnected { return true }
+            try? await Task.sleep(nanoseconds: 20_000_000)
+        }
+        return await server.isClientConnected
+    }
+
     // MARK: - 1. Socket Lifecycle Tests
 
     @Test func serverStartAndStopCleansFilesystem() async throws {
@@ -265,9 +275,8 @@ import Testing
             Darwin.write(clientFD, raw.baseAddress!, raw.count)
         }
 
-        // Wait briefly for server to adopt session
-        try await Task.sleep(nanoseconds: 100_000_000)
-        #expect(await server.isClientConnected == true)
+        // Wait for server to adopt session
+        #expect(await waitForClientConnection(server) == true)
 
         await server.stop()
     }
@@ -408,8 +417,7 @@ import Testing
         let frame = try AetherFrameCodec.encode(handshake)
         _ = frame.withUnsafeBytes { Darwin.write(clientFD, $0.baseAddress!, $0.count) }
 
-        try await Task.sleep(nanoseconds: 100_000_000)
-        #expect(await server.isClientConnected == true)
+        #expect(await waitForClientConnection(server) == true)
 
         let payload = try AetherOTPPayload(
             source: .messages,
@@ -454,7 +462,7 @@ import Testing
         let handshake = AetherHandshakeFrame(sessionToken: tokenStr, clientIdentifier: "iordv.Droppy")
         let frame = try AetherFrameCodec.encode(handshake)
         _ = frame.withUnsafeBytes { Darwin.write(clientFD, $0.baseAddress!, $0.count) }
-        try await Task.sleep(nanoseconds: 100_000_000)
+        #expect(await waitForClientConnection(server) == true)
 
         let payload = try AetherOTPPayload(
             source: .appleMail,
@@ -524,15 +532,26 @@ import Testing
         defer { Darwin.close(client1FD) }
         let h1 = try AetherFrameCodec.encode(AetherHandshakeFrame(sessionToken: tokenStr, clientIdentifier: "Droppy1"))
         _ = h1.withUnsafeBytes { Darwin.write(client1FD, $0.baseAddress!, $0.count) }
-        try await Task.sleep(nanoseconds: 100_000_000)
-        #expect(await server.isClientConnected == true)
+        #expect(await waitForClientConnection(server) == true)
 
         // Client 2 connects (e.g. Droppy restart)
         let client2FD = try #require(connectClient(to: socketPath))
         defer { Darwin.close(client2FD) }
         let h2 = try AetherFrameCodec.encode(AetherHandshakeFrame(sessionToken: tokenStr, clientIdentifier: "Droppy2"))
         _ = h2.withUnsafeBytes { Darwin.write(client2FD, $0.baseAddress!, $0.count) }
-        try await Task.sleep(nanoseconds: 100_000_000)
+
+        // Wait for server to adopt client 2 and close client 1
+        var client1Closed = false
+        for _ in 0..<100 {
+            var checkBuf = [UInt8](repeating: 0, count: 1)
+            let checkN = Darwin.read(client1FD, &checkBuf, 1)
+            if checkN == 0 {
+                client1Closed = true
+                break
+            }
+            try? await Task.sleep(nanoseconds: 20_000_000)
+        }
+        #expect(client1Closed == true)
 
         // Server still has active client connected
         #expect(await server.isClientConnected == true)
@@ -541,6 +560,11 @@ import Testing
         let payload = try AetherOTPPayload(source: .gmail, serviceLabel: "Bank", otpCode: "123456")
         let res = try await server.broadcast(payload: payload)
         #expect(res == .delivered)
+
+        var pfd = pollfd(fd: client2FD, events: Int16(POLLIN), revents: 0)
+        let pollRes = Darwin.poll(&pfd, 1, 2000)
+        #expect(pollRes > 0)
+        #expect((pfd.revents & Int16(POLLIN)) != 0)
 
         var buf = [UInt8](repeating: 0, count: 1024)
         let n = Darwin.read(client2FD, &buf, buf.count)
