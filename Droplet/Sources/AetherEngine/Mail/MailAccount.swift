@@ -58,6 +58,11 @@ public struct MailAccount: Codable, Identifiable, Hashable, Sendable {
         case present
         case missing
         case locked(OSStatus)
+
+        public var isLocked: Bool {
+            if case .locked = self { return true }
+            return false
+        }
     }
 
     public func credentialState(in secrets: AetherSecretStore = .keychain) -> CredentialState {
