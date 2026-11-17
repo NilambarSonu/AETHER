@@ -122,7 +122,7 @@ public final class LocalWatcher {
             }
             if store.hasPendingBodies, !pendingRetryScheduled {
                 pendingRetryScheduled = true
-                queue.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+                queue.asyncAfter(deadline: .now() + 0.2) { [weak self] in
                     self?.pendingRetryScheduled = false
                     self?.poll(lookback: lookback, status: status, deliver: deliver, event: event)
                 }

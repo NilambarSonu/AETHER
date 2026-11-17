@@ -102,10 +102,10 @@ public struct CodeItem: Identifiable, Equatable, Sendable {
     public var lifetime: TimeInterval { expires.timeIntervalSince(received) }
     public var countdown: TimeInterval { min(lifetime, 600) }
     public func showsCountdown(now: Date) -> Bool { expires.timeIntervalSince(now) <= countdown }
-    public var isLink: Bool { code.isEmpty }
+    public var isLink: Bool { (resetsPassword && link != nil) || (link != nil && code.isEmpty) }
     public var hasFailedSenderAuth: Bool { origin == .mail && senderVerified == false }
     public var isVerifiedSender: Bool { origin == .mail && senderVerified == true }
-    public var kind: Kind { !isLink ? .code : resetsPassword ? .passwordReset : .signIn }
+    public var kind: Kind { isLink ? (resetsPassword ? .passwordReset : .signIn) : .code }
     public var linkSetting: String { resetsPassword ? AetherPrefs.resetLinks : AetherPrefs.signInLinks }
     public var destination: URL? { link.map(LinkWrapper.destination) }
 
@@ -127,7 +127,7 @@ public struct CodeItem: Identifiable, Equatable, Sendable {
     }
 
     public func shouldAnnounce(at date: Date) -> Bool {
-        date.timeIntervalSince(received) < 180 && date < expires
+        date.timeIntervalSince(received) < 300 && date < expires
     }
 }
 
@@ -150,7 +150,7 @@ public extension CodeItem {
             expires: message.date.addingTimeInterval(
                 message.precomputed?.validitySeconds
                     ?? CodeExtractor.validity(in: message.fullText)
-                    ?? (code == nil ? Self.linkValidity : Self.defaultValidity)),
+                    ?? (code == nil || resetsPassword ? Self.linkValidity : Self.defaultValidity)),
             domain: message.senderVerified == false
                 ? nil
                 : ServiceIdentity.domain(senderAddress: message.senderID, isMail: message.isMail, text: message.fullText, service: service),

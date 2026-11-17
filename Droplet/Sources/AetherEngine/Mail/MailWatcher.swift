@@ -85,9 +85,9 @@ public enum MailWatcher {
                             try await conn.idle(renewAfter: 240)
                         } else {
                             if let wakeSignal {
-                                _ = await wakeSignal.sleep(for: 20)
+                                _ = await wakeSignal.sleep(for: 3)
                             } else {
-                                try await Task.sleep(for: .seconds(20))
+                                try await Task.sleep(for: .seconds(3))
                             }
                             _ = try await conn.command("NOOP", timeout: 30)
                         }

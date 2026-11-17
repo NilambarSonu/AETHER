@@ -77,9 +77,9 @@ public enum APIWatcher {
         lookback: TimeInterval = 7 * 86400,
         mailbox: (any MailAPI)? = nil,
         includeJunk: Bool = false,
-        poll: TimeInterval = 5.0,
-        burstPoll: TimeInterval = 2.5,
-        retryDelay: TimeInterval = 5.0,
+        poll: TimeInterval = 1.8,
+        burstPoll: TimeInterval = 0.8,
+        retryDelay: TimeInterval = 3.0,
         wakeSignal: PollWakeSignal? = nil
     ) async {
         let mailbox = mailbox ?? api(for: account, secrets: secrets, includeJunk: includeJunk)
@@ -87,7 +87,7 @@ public enum APIWatcher {
         var resuming = cursor != nil
         var seen = SeenIDBuffer(capacity: 2_000)
         var backoff = retryDelay
-        var burstUntil = Date().addingTimeInterval(45)
+        var burstUntil = Date().addingTimeInterval(60)
         var pollCount = 0
 
         while !Task.isCancelled {
@@ -97,7 +97,7 @@ public enum APIWatcher {
 
                 func fetchConcurrent(_ ids: [String]) async throws -> [IncomingMessage] {
                     guard !ids.isEmpty else { return [] }
-                    let maxConcurrency = 4
+                    let maxConcurrency = 6
                     var indexedResults: [Int: IncomingMessage] = [:]
                     try await withThrowingTaskGroup(of: (Int, IncomingMessage?).self) { group in
                         var nextIndex = 0
@@ -157,7 +157,7 @@ public enum APIWatcher {
                     // Periodic recent-message reconciliation catches messages delayed by filters or category moves
                     // that history cursors occasionally skip, avoiding "visible in Gmail app, missing in AETHER".
                     var reconciledAny = !pending.isEmpty
-                    if pollCount % 4 == 1 || Date() < burstUntil {
+                    if pollCount % 2 == 1 || Date() < burstUntil {
                         let recentIDs = (try? await mailbox.reconcileRecentIDs(
                             since: Date().addingTimeInterval(-3600),
                             limit: 25

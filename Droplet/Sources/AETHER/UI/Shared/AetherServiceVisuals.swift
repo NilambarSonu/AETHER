@@ -563,9 +563,464 @@ enum AetherBrandCatalog {
                 foreground: .white
             )
         }
+        if key.contains("wise") {
+            return Style(
+                topColor: Color(red: 0.00, green: 0.73, blue: 1.00),
+                bottomColor: Color(red: 0.00, green: 0.51, blue: 0.70),
+                markText: "₩",
+                symbol: nil,
+                foreground: .white
+            )
+        }
+        if key.contains("revolut") {
+            return Style(
+                topColor: Color(red: 0.15, green: 0.16, blue: 0.18),
+                bottomColor: Color(red: 0.06, green: 0.07, blue: 0.08),
+                markText: "R",
+                symbol: nil,
+                foreground: .white
+            )
+        }
+        if key.contains("monzo") {
+            return Style(
+                topColor: Color(red: 0.98, green: 0.35, blue: 0.28),
+                bottomColor: Color(red: 0.12, green: 0.20, blue: 0.30),
+                markText: "M",
+                symbol: nil,
+                foreground: .white
+            )
+        }
+        if key.contains("n26") {
+            return Style(
+                topColor: Color(red: 0.21, green: 0.63, blue: 0.55),
+                bottomColor: Color(red: 0.15, green: 0.42, blue: 0.36),
+                markText: "26",
+                symbol: nil,
+                foreground: .white
+            )
+        }
+        if key.contains("klarna") {
+            return Style(
+                topColor: Color(red: 1.00, green: 0.66, blue: 0.80),
+                bottomColor: Color(red: 1.00, green: 0.52, blue: 0.70),
+                markText: "K",
+                symbol: nil,
+                foreground: .black
+            )
+        }
+        if key.contains("shopify") {
+            return Style(
+                topColor: Color(red: 0.58, green: 0.75, blue: 0.28),
+                bottomColor: Color(red: 0.37, green: 0.56, blue: 0.24),
+                markText: nil,
+                symbol: "bag.fill",
+                foreground: .white
+            )
+        }
+        if key.contains("uber") {
+            return Style(
+                topColor: Color(red: 0.18, green: 0.18, blue: 0.20),
+                bottomColor: Color(red: 0.05, green: 0.05, blue: 0.06),
+                markText: "Uber",
+                symbol: nil,
+                foreground: .white
+            )
+        }
+        if key.contains("airbnb") {
+            return Style(
+                topColor: Color(red: 1.00, green: 0.35, blue: 0.37),
+                bottomColor: Color(red: 0.85, green: 0.23, blue: 0.28),
+                markText: "A",
+                symbol: nil,
+                foreground: .white
+            )
+        }
+        if key.contains("notion") {
+            return Style(
+                topColor: Color(red: 0.18, green: 0.18, blue: 0.20),
+                bottomColor: Color(red: 0.08, green: 0.08, blue: 0.10),
+                markText: "N",
+                symbol: nil,
+                foreground: .white
+            )
+        }
+        if key.contains("figma") {
+            return Style(
+                topColor: Color(red: 0.04, green: 0.81, blue: 0.51),
+                bottomColor: Color(red: 0.64, green: 0.35, blue: 1.00),
+                markText: nil,
+                symbol: "square.grid.2x2",
+                foreground: .white
+            )
+        }
+        if key.contains("linear") {
+            return Style(
+                topColor: Color(red: 0.37, green: 0.42, blue: 0.82),
+                bottomColor: Color(red: 0.24, green: 0.28, blue: 0.63),
+                markText: "L",
+                symbol: nil,
+                foreground: .white
+            )
+        }
+        if key.contains("steam") {
+            return Style(
+                topColor: Color(red: 0.11, green: 0.16, blue: 0.22),
+                bottomColor: Color(red: 0.09, green: 0.10, blue: 0.13),
+                markText: nil,
+                symbol: "gamecontroller.fill",
+                foreground: .white
+            )
+        }
+        if key.contains("playstation") || key.contains("sony") {
+            return Style(
+                topColor: Color(red: 0.00, green: 0.22, blue: 0.57),
+                bottomColor: Color(red: 0.00, green: 0.12, blue: 0.36),
+                markText: nil,
+                symbol: "gamecontroller.fill",
+                foreground: .white
+            )
+        }
+        if key.contains("xbox") {
+            return Style(
+                topColor: Color(red: 0.06, green: 0.49, blue: 0.06),
+                bottomColor: Color(red: 0.04, green: 0.32, blue: 0.04),
+                markText: nil,
+                symbol: "gamecontroller.fill",
+                foreground: .white
+            )
+        }
+        if key.contains("nintendo") {
+            return Style(
+                topColor: Color(red: 0.90, green: 0.00, blue: 0.07),
+                bottomColor: Color(red: 0.66, green: 0.00, blue: 0.05),
+                markText: nil,
+                symbol: "gamecontroller.fill",
+                foreground: .white
+            )
+        }
+        if key.contains("epicgames") || key.contains("epic games") {
+            return Style(
+                topColor: Color(red: 0.20, green: 0.20, blue: 0.22),
+                bottomColor: Color(red: 0.08, green: 0.08, blue: 0.10),
+                markText: "EPIC",
+                symbol: nil,
+                foreground: .white
+            )
+        }
+        if key.contains("bitwarden") {
+            return Style(
+                topColor: Color(red: 0.09, green: 0.36, blue: 0.86),
+                bottomColor: Color(red: 0.04, green: 0.23, blue: 0.55),
+                markText: nil,
+                symbol: "shield.lefthalf.filled",
+                foreground: .white
+            )
+        }
+        if key.contains("1password") {
+            return Style(
+                topColor: Color(red: 0.04, green: 0.52, blue: 0.92),
+                bottomColor: Color(red: 0.02, green: 0.32, blue: 0.56),
+                markText: nil,
+                symbol: "key.fill",
+                foreground: .white
+            )
+        }
+        if key.contains("proton") {
+            return Style(
+                topColor: Color(red: 0.43, green: 0.29, blue: 1.00),
+                bottomColor: Color(red: 0.26, green: 0.13, blue: 0.70),
+                markText: nil,
+                symbol: "lock.shield.fill",
+                foreground: .white
+            )
+        }
+        if key.contains("okta") {
+            return Style(
+                topColor: Color(red: 0.00, green: 0.49, blue: 0.76),
+                bottomColor: Color(red: 0.00, green: 0.31, blue: 0.48),
+                markText: nil,
+                symbol: "circle.circle.fill",
+                foreground: .white
+            )
+        }
+        if key.contains("duo") {
+            return Style(
+                topColor: Color(red: 0.32, green: 0.72, blue: 0.28),
+                bottomColor: Color(red: 0.22, green: 0.51, blue: 0.19),
+                markText: nil,
+                symbol: "shield.fill",
+                foreground: .white
+            )
+        }
+        if key.contains("vercel") {
+            return Style(
+                topColor: Color(red: 0.15, green: 0.15, blue: 0.16),
+                bottomColor: Color(red: 0.04, green: 0.04, blue: 0.05),
+                markText: "▲",
+                symbol: nil,
+                foreground: .white
+            )
+        }
+        if key.contains("supabase") {
+            return Style(
+                topColor: Color(red: 0.24, green: 0.81, blue: 0.56),
+                bottomColor: Color(red: 0.14, green: 0.58, blue: 0.38),
+                markText: nil,
+                symbol: "bolt.fill",
+                foreground: .white
+            )
+        }
+        if key.contains("gitlab") {
+            return Style(
+                topColor: Color(red: 0.99, green: 0.43, blue: 0.15),
+                bottomColor: Color(red: 0.89, green: 0.26, blue: 0.16),
+                markText: nil,
+                symbol: "chevron.left.forwardslash.chevron.right",
+                foreground: .white
+            )
+        }
+        if key.contains("chase") {
+            return Style(
+                topColor: Color(red: 0.07, green: 0.48, blue: 0.79),
+                bottomColor: Color(red: 0.00, green: 0.31, blue: 0.55),
+                markText: nil,
+                symbol: "building.columns.fill",
+                foreground: .white
+            )
+        }
+        if key.contains("bankofamerica") || key.contains("bofa") {
+            return Style(
+                topColor: Color(red: 0.89, green: 0.09, blue: 0.22),
+                bottomColor: Color(red: 0.00, green: 0.32, blue: 0.61),
+                markText: nil,
+                symbol: "building.columns.fill",
+                foreground: .white
+            )
+        }
+        if key.contains("wellsfargo") {
+            return Style(
+                topColor: Color(red: 0.84, green: 0.12, blue: 0.16),
+                bottomColor: Color(red: 0.62, green: 0.08, blue: 0.10),
+                markText: nil,
+                symbol: "building.columns.fill",
+                foreground: .white
+            )
+        }
+        if key.contains("citi") {
+            return Style(
+                topColor: Color(red: 0.00, green: 0.23, blue: 0.44),
+                bottomColor: Color(red: 0.00, green: 0.14, blue: 0.28),
+                markText: nil,
+                symbol: "building.columns.fill",
+                foreground: .white
+            )
+        }
+        if key.contains("capitalone") {
+            return Style(
+                topColor: Color(red: 0.00, green: 0.28, blue: 0.47),
+                bottomColor: Color(red: 0.63, green: 0.16, blue: 0.19),
+                markText: nil,
+                symbol: "creditcard.fill",
+                foreground: .white
+            )
+        }
+        if key.contains("amex") || key.contains("americanexpress") || key.contains("american express") {
+            return Style(
+                topColor: Color(red: 0.00, green: 0.44, blue: 0.81),
+                bottomColor: Color(red: 0.00, green: 0.25, blue: 0.48),
+                markText: nil,
+                symbol: "creditcard.fill",
+                foreground: .white
+            )
+        }
+        if key.contains("barclays") {
+            return Style(
+                topColor: Color(red: 0.00, green: 0.68, blue: 0.94),
+                bottomColor: Color(red: 0.00, green: 0.35, blue: 0.53),
+                markText: nil,
+                symbol: "building.columns.fill",
+                foreground: .white
+            )
+        }
+        if key.contains("hsbc") {
+            return Style(
+                topColor: Color(red: 0.86, green: 0.00, blue: 0.07),
+                bottomColor: Color(red: 0.55, green: 0.00, blue: 0.04),
+                markText: nil,
+                symbol: "building.columns.fill",
+                foreground: .white
+            )
+        }
+        if key.contains("santander") {
+            return Style(
+                topColor: Color(red: 0.93, green: 0.00, blue: 0.00),
+                bottomColor: Color(red: 0.61, green: 0.00, blue: 0.00),
+                markText: nil,
+                symbol: "building.columns.fill",
+                foreground: .white
+            )
+        }
+        if key.contains("deutschebank") || key.contains("db.com") {
+            return Style(
+                topColor: Color(red: 0.00, green: 0.09, blue: 0.66),
+                bottomColor: Color(red: 0.00, green: 0.05, blue: 0.33),
+                markText: nil,
+                symbol: "building.columns.fill",
+                foreground: .white
+            )
+        }
+        if key.contains("nubank") {
+            return Style(
+                topColor: Color(red: 0.51, green: 0.04, blue: 0.82),
+                bottomColor: Color(red: 0.32, green: 0.02, blue: 0.52),
+                markText: "Nu",
+                symbol: nil,
+                foreground: .white
+            )
+        }
+        if key.contains("mercadopago") || key.contains("mercado pago") {
+            return Style(
+                topColor: Color(red: 0.00, green: 0.62, blue: 0.89),
+                bottomColor: Color(red: 0.00, green: 0.42, blue: 0.65),
+                markText: nil,
+                symbol: "hand.wave.fill",
+                foreground: .white
+            )
+        }
         return nil
     }
 }
+
+// MARK: - Universal Category-Aware Semantic Classifier (Worldwide Fallback)
+
+/// Maps any unlisted domain or sender anywhere in the world into an authoritative,
+/// Apple-grade semantic icon and continuous squircle gradient badge.
+enum AetherCategoryClassifier {
+    static func classify(domain: String?, service: String) -> AetherBrandCatalog.Style? {
+        let key = (domain ?? service).lowercased()
+        let nameLower = service.lowercased()
+
+        // 1. Government & Public Sector (.gov, .gov.in, .gob.mx, .gouv.fr, .nic.in, ministries, parliament)
+        if key.contains(".gov") || key.contains(".gob.") || key.contains(".gouv.") || key.contains(".nic.in")
+            || key.contains(".mil") || key.contains("odisha") || key.contains("aadhaar") || key.contains("passport")
+            || key.contains("parliament") || key.contains("incometax") || key.contains("epfindia")
+            || nameLower.contains("government") || nameLower.contains("ministry") || nameLower.contains("department")
+            || nameLower.contains("portal") || nameLower.contains("citizen") || nameLower.contains("state") {
+            return AetherBrandCatalog.Style(
+                topColor: Color(red: 0.11, green: 0.22, blue: 0.42),
+                bottomColor: Color(red: 0.05, green: 0.12, blue: 0.26),
+                markText: nil,
+                symbol: "building.columns.fill",
+                foreground: .white
+            )
+        }
+
+        // 2. Banking, Fintech, Crypto & Payments (bank, pay, wallet, credit, card, crypto, invest, wealth, capital)
+        if key.contains("bank") || key.contains("pay") || key.contains("wallet") || key.contains("credit")
+            || key.contains("card") || key.contains("crypto") || key.contains("coin") || key.contains("finance")
+            || key.contains("invest") || key.contains("fund") || key.contains("loan") || key.contains("wealth")
+            || key.contains("capital") || key.contains("cash") || key.contains("checkout") {
+            return AetherBrandCatalog.Style(
+                topColor: Color(red: 0.05, green: 0.52, blue: 0.36),
+                bottomColor: Color(red: 0.02, green: 0.32, blue: 0.22),
+                markText: nil,
+                symbol: "creditcard.fill",
+                foreground: .white
+            )
+        }
+
+        // 3. Identity, Authentication & Security (auth, login, sso, id, identity, pass, security, shield, vault, token)
+        if key.contains("auth") || key.contains("login") || key.contains("sso") || key.contains("identity")
+            || key.contains("pass") || key.contains("security") || key.contains("shield") || key.contains("vault")
+            || key.contains("token") || key.contains("verify") || key.contains("access") {
+            return AetherBrandCatalog.Style(
+                topColor: Color(red: 0.18, green: 0.28, blue: 0.72),
+                bottomColor: Color(red: 0.10, green: 0.16, blue: 0.48),
+                markText: nil,
+                symbol: "lock.shield.fill",
+                foreground: .white
+            )
+        }
+
+        // 4. Cloud, Hosting & Developer Infrastructure (cloud, api, dev, code, git, host, server, deploy, infra, db)
+        if key.contains("cloud") || key.contains("api") || key.contains("dev") || key.contains("code")
+            || key.contains("git") || key.contains("host") || key.contains("server") || key.contains("deploy")
+            || key.contains("infra") || key.contains("stack") || key.contains("db") || key.contains("database") {
+            return AetherBrandCatalog.Style(
+                topColor: Color(red: 0.18, green: 0.22, blue: 0.28),
+                bottomColor: Color(red: 0.08, green: 0.10, blue: 0.14),
+                markText: nil,
+                symbol: "cpu.fill",
+                foreground: .white
+            )
+        }
+
+        // 5. Messaging, Mail & Social (mail, post, message, chat, talk, social, forum, community)
+        if key.contains("mail") || key.contains("post") || key.contains("message") || key.contains("chat")
+            || key.contains("talk") || key.contains("social") || key.contains("forum") || key.contains("community") {
+            return AetherBrandCatalog.Style(
+                topColor: Color(red: 0.08, green: 0.56, blue: 0.88),
+                bottomColor: Color(red: 0.02, green: 0.38, blue: 0.68),
+                markText: nil,
+                symbol: "paperplane.fill",
+                foreground: .white
+            )
+        }
+
+        // 6. E-Commerce, Delivery & Shopping (shop, store, market, cart, order, buy, delivery, mart)
+        if key.contains("shop") || key.contains("store") || key.contains("market") || key.contains("cart")
+            || key.contains("order") || key.contains("buy") || key.contains("delivery") || key.contains("mart") {
+            return AetherBrandCatalog.Style(
+                topColor: Color(red: 0.92, green: 0.42, blue: 0.12),
+                bottomColor: Color(red: 0.76, green: 0.26, blue: 0.05),
+                markText: nil,
+                symbol: "bag.fill",
+                foreground: .white
+            )
+        }
+
+        // 7. Travel, Airlines & Transit (air, flight, fly, travel, hotel, ride, transit, train, rail, bus, booking)
+        if key.contains("air") || key.contains("flight") || key.contains("fly") || key.contains("travel")
+            || key.contains("hotel") || key.contains("ride") || key.contains("transit") || key.contains("train")
+            || key.contains("booking") || key.contains("trip") {
+            return AetherBrandCatalog.Style(
+                topColor: Color(red: 0.05, green: 0.48, blue: 0.78),
+                bottomColor: Color(red: 0.02, green: 0.30, blue: 0.54),
+                markText: nil,
+                symbol: "airplane",
+                foreground: .white
+            )
+        }
+
+        // 8. Health, Medical & Wellness (health, med, care, clinic, hospital, pharma, rx, doctor)
+        if key.contains("health") || key.contains("med") || key.contains("care") || key.contains("clinic")
+            || key.contains("hospital") || key.contains("pharma") || key.contains("rx") {
+            return AetherBrandCatalog.Style(
+                topColor: Color(red: 0.88, green: 0.18, blue: 0.32),
+                bottomColor: Color(red: 0.64, green: 0.08, blue: 0.20),
+                markText: nil,
+                symbol: "cross.case.fill",
+                foreground: .white
+            )
+        }
+
+        // 9. Education & Academia (.edu, .ac., univ, college, school, academy, learn, course)
+        if key.contains(".edu") || key.contains(".ac.") || key.contains("univ") || key.contains("college")
+            || key.contains("school") || key.contains("academy") || key.contains("course") || key.contains("learn") {
+            return AetherBrandCatalog.Style(
+                topColor: Color(red: 0.45, green: 0.12, blue: 0.28),
+                bottomColor: Color(red: 0.28, green: 0.05, blue: 0.18),
+                markText: nil,
+                symbol: "graduationcap.fill",
+                foreground: .white
+            )
+        }
+
+        return nil
+    }
+}
+
+// MARK: - Elevated Liquid-Glass Two-Letter Monograms
 
 struct AetherServiceMonogram: View {
     let name: String
@@ -573,24 +1028,48 @@ struct AetherServiceMonogram: View {
     var size: CGFloat = 32
 
     private static let palette: [(Color, Color)] = [
-        (.blue, Color(red: 0.10, green: 0.36, blue: 0.85)),
-        (.indigo, Color(red: 0.26, green: 0.22, blue: 0.78)),
-        (.purple, Color(red: 0.52, green: 0.20, blue: 0.78)),
-        (.pink, Color(red: 0.78, green: 0.16, blue: 0.44)),
-        (.orange, Color(red: 0.86, green: 0.42, blue: 0.06)),
-        (.green, Color(red: 0.10, green: 0.58, blue: 0.30)),
-        (.teal, Color(red: 0.08, green: 0.52, blue: 0.64)),
+        (Color(red: 0.12, green: 0.48, blue: 0.98), Color(red: 0.04, green: 0.28, blue: 0.78)), // Apple Blue
+        (Color(red: 0.36, green: 0.32, blue: 0.88), Color(red: 0.22, green: 0.18, blue: 0.70)), // Indigo
+        (Color(red: 0.62, green: 0.26, blue: 0.88), Color(red: 0.46, green: 0.12, blue: 0.72)), // Purple
+        (Color(red: 0.88, green: 0.20, blue: 0.52), Color(red: 0.70, green: 0.10, blue: 0.38)), // Magenta
+        (Color(red: 0.95, green: 0.30, blue: 0.24), Color(red: 0.78, green: 0.14, blue: 0.12)), // Coral Red
+        (Color(red: 0.96, green: 0.52, blue: 0.10), Color(red: 0.82, green: 0.36, blue: 0.04)), // Amber Orange
+        (Color(red: 0.18, green: 0.68, blue: 0.38), Color(red: 0.08, green: 0.50, blue: 0.26)), // Emerald Green
+        (Color(red: 0.10, green: 0.62, blue: 0.74), Color(red: 0.04, green: 0.44, blue: 0.56)), // Teal
+        (Color(red: 0.24, green: 0.58, blue: 0.92), Color(red: 0.12, green: 0.38, blue: 0.78)), // Sky Azure
+        (Color(red: 0.48, green: 0.22, blue: 0.56), Color(red: 0.32, green: 0.10, blue: 0.40)), // Plum
+        (Color(red: 0.82, green: 0.18, blue: 0.34), Color(red: 0.62, green: 0.08, blue: 0.22)), // Crimson
+        (Color(red: 0.22, green: 0.65, blue: 0.62), Color(red: 0.10, green: 0.48, blue: 0.46)), // Mint / Seafoam
+        (Color(red: 0.78, green: 0.45, blue: 0.12), Color(red: 0.60, green: 0.30, blue: 0.05)), // Warm Ochre
+        (Color(red: 0.30, green: 0.38, blue: 0.72), Color(red: 0.16, green: 0.22, blue: 0.54)), // Slate Cobalt
+        (Color(red: 0.54, green: 0.36, blue: 0.82), Color(red: 0.38, green: 0.20, blue: 0.66)), // Violet
+        (Color(red: 0.15, green: 0.55, blue: 0.48), Color(red: 0.06, green: 0.38, blue: 0.32)), // Forest Jade
     ]
 
     var body: some View {
         let radius = DroppyRadius.appIcon(forSide: size)
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
-        if let brand = AetherBrandCatalog.match(domain: domain, service: name) {
+        if let brand = AetherBrandCatalog.match(domain: domain, service: name) ?? AetherCategoryClassifier.classify(domain: domain, service: name) {
             shape
                 .fill(LinearGradient(colors: [brand.topColor, brand.bottomColor], startPoint: .topLeading, endPoint: .bottomTrailing))
                 .frame(width: size, height: size)
                 .overlay(
-                    shape.strokeBorder(.white.opacity(0.22), lineWidth: 0.6)
+                    LinearGradient(
+                        colors: [.white.opacity(0.30), .clear],
+                        startPoint: .top,
+                        endPoint: .center
+                    )
+                    .clipShape(shape)
+                )
+                .overlay(
+                    shape.strokeBorder(
+                        LinearGradient(
+                            colors: [.white.opacity(0.32), .white.opacity(0.10)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 0.6
+                    )
                 )
                 .overlay {
                     if let symbol = brand.symbol {
@@ -605,24 +1084,15 @@ struct AetherServiceMonogram: View {
                 }
                 .accessibilityHidden(true)
         } else {
-            let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-            let words = trimmed.split(separator: " ").filter { !$0.isEmpty }
-            let initials: String = {
-                if words.count >= 2 {
-                    let first = words[0].first.map(String.init) ?? ""
-                    let second = words[1].first.map(String.init) ?? ""
-                    return (first + second).uppercased()
-                }
-                return trimmed.first.map { String($0).uppercased() } ?? "A"
-            }()
-            let hash = trimmed.lowercased().unicodeScalars.reduce(5381) { ($0 &* 33) &+ Int($1.value) }
+            let initials = Self.extractInitials(from: name.isEmpty ? (domain ?? "A") : name)
+            let hash = (domain ?? name).lowercased().unicodeScalars.reduce(5381) { ($0 &* 33) &+ Int($1.value) }
             let pair = Self.palette[Int(hash.magnitude % UInt(Self.palette.count))]
             shape
                 .fill(LinearGradient(colors: [pair.0, pair.1], startPoint: .topLeading, endPoint: .bottomTrailing))
                 .frame(width: size, height: size)
                 .overlay(
                     LinearGradient(
-                        colors: [.white.opacity(0.24), .clear],
+                        colors: [.white.opacity(0.35), .clear],
                         startPoint: .top,
                         endPoint: .center
                     )
@@ -631,7 +1101,7 @@ struct AetherServiceMonogram: View {
                 .overlay(
                     shape.strokeBorder(
                         LinearGradient(
-                            colors: [.white.opacity(0.32), .white.opacity(0.08)],
+                            colors: [.white.opacity(0.35), .white.opacity(0.10)],
                             startPoint: .top,
                             endPoint: .bottom
                         ),
@@ -640,12 +1110,34 @@ struct AetherServiceMonogram: View {
                 )
                 .overlay(
                     Text(verbatim: initials)
-                        .font(.system(size: size * (initials.count > 1 ? 0.38 : 0.48), weight: .bold, design: .rounded))
+                        .font(.system(size: size * (initials.count > 1 ? 0.40 : 0.48), weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
                         .shadow(color: .black.opacity(0.25), radius: 1, x: 0, y: 1)
                 )
                 .accessibilityHidden(true)
         }
+    }
+
+    private static func extractInitials(from text: String) -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "AE" }
+        let words = trimmed.split(separator: " ").filter { !$0.isEmpty }
+        if words.count >= 2 {
+            let first = words[0].first.map(String.init) ?? ""
+            let second = words[1].first.map(String.init) ?? ""
+            return (first + second).uppercased()
+        }
+        // Decompose CamelCase (e.g. "RazorPay" -> "RP", "DropBox" -> "DB", "BitWarden" -> "BW")
+        let uppers = trimmed.filter { $0.isUppercase }
+        if uppers.count >= 2 {
+            return String(uppers.prefix(2))
+        }
+        // Single word: use first 2 letters if >= 2 letters, ensuring a rich 2-letter monogram
+        let letters = trimmed.filter { $0.isLetter }
+        if letters.count >= 2 {
+            return String(letters.prefix(2)).uppercased()
+        }
+        return String(trimmed.prefix(1)).uppercased()
     }
 }
 

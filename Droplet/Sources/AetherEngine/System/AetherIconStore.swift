@@ -53,8 +53,8 @@ public final class AetherIconStore: ObservableObject {
 
     private static let session: URLSession = {
         let config = URLSessionConfiguration.ephemeral
-        config.timeoutIntervalForRequest = 6
-        config.timeoutIntervalForResource = 12
+        config.timeoutIntervalForRequest = 3.5
+        config.timeoutIntervalForResource = 7
         config.httpShouldSetCookies = false
         config.httpCookieStorage = nil
         config.urlCredentialStorage = nil
@@ -119,6 +119,21 @@ public final class AetherIconStore: ObservableObject {
 
     private static func proxies(for domain: String) -> [URL] {
         var list: [URL] = []
+
+        // 1. High-resolution Apple Touch Icons (180x180 retina PNG used by modern global web apps)
+        if let directTouch = URL(string: "https://\(domain)/apple-touch-icon.png") {
+            list.append(directTouch)
+        }
+        if let directTouchPre = URL(string: "https://\(domain)/apple-touch-icon-precomposed.png") {
+            list.append(directTouchPre)
+        }
+        if !domain.hasPrefix("www.") {
+            if let directWwwTouch = URL(string: "https://www.\(domain)/apple-touch-icon.png") {
+                list.append(directWwwTouch)
+            }
+        }
+
+        // 2. Google Favicon Service (128x128 retina)
         var google = URLComponents(string: "https://www.google.com/s2/favicons")!
         google.queryItems = [.init(name: "domain", value: domain), .init(name: "sz", value: "128")]
         if let u = google.url { list.append(u) }
@@ -129,9 +144,12 @@ public final class AetherIconStore: ObservableObject {
             if let u = googleWww.url { list.append(u) }
         }
 
+        // 3. DuckDuckGo Icon Service
         if let ddg = URL(string: "https://icons.duckduckgo.com/ip3/\(domain).ico") {
             list.append(ddg)
         }
+
+        // 4. Standard Favicon
         if let direct = URL(string: "https://\(domain)/favicon.ico") {
             list.append(direct)
         }
@@ -157,7 +175,7 @@ public final class AetherIconStore: ObservableObject {
             || (["t0.gstatic.com", "t1.gstatic.com", "t2.gstatic.com", "t3.gstatic.com"].contains(host) && url.path == "/faviconV2")
             || (host == "icons.duckduckgo.com" && url.path.hasPrefix("/ip3/") && url.path.hasSuffix(".ico")
                 && ServiceIdentity.isHostname(String(url.path.dropFirst(5).dropLast(4))))
-            || (ServiceIdentity.isHostname(host) && url.path == "/favicon.ico")
+            || (ServiceIdentity.isHostname(host) && (url.path == "/favicon.ico" || url.path == "/apple-touch-icon.png" || url.path == "/apple-touch-icon-precomposed.png"))
         {
             return true
         }
