@@ -237,7 +237,7 @@ jobs:
   publish-release:
     name: Publish GitHub Release
     needs: build-and-test
-    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.publish_release == true)
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.publish_release == true)
     runs-on: macos-15
     permissions:
       contents: write
@@ -280,11 +280,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           if gh release view "$RELEASE_TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release edit "$RELEASE_TAG" --notes-file Droplet/CHANGELOG.md --title "AETHER Droplet ${RELEASE_TAG}" --latest --repo "${{ github.repository }}"
             gh release upload "$RELEASE_TAG" release-assets/* --clobber --repo "${{ github.repository }}"
           else
             gh release create "$RELEASE_TAG" release-assets/* \
               --repo "${{ github.repository }}" \
               --target "${{ github.sha }}" \
               --title "AETHER Droplet ${RELEASE_TAG}" \
-              --notes-file Droplet/CHANGELOG.md
+              --notes-file Droplet/CHANGELOG.md \
+              --latest
           fi

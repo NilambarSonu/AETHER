@@ -440,7 +440,7 @@ public final class AetherDroplet:
             return self.widgetVisible || self.popoverVisible
         }
         target.hooks.appVersion = {
-            Bundle(for: AETHERPrincipal.self).object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "2.2.0"
+            Bundle(for: AETHERPrincipal.self).object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "2.3.0"
         }
     }
 

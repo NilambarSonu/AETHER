@@ -1,6 +1,6 @@
 # AETHER Droplet — Installation & Testing Guide
 
-This directory/archive ships **`AETHER.droplet`** (`2.0.0`), a standalone droplet built with the official **DroppyKit SDK** (`minAPI: 1.23.0`, `abi: 1`, `minAppVersion: 16.2.0`, universal `arm64` + `x86_64` binary dynamically linked against `@rpath/DroppyKit.framework/Versions/A/DroppyKit`).
+This directory/archive ships **`AETHER.droplet`** (`2.3.0`), a standalone droplet built with the official **DroppyKit SDK** (`minAPI: 1.23.0`, `abi: 1`, `minAppVersion: 16.2.0`, universal `arm64` + `x86_64` binary dynamically linked against `@rpath/DroppyKit.framework/Versions/A/DroppyKit`).
 
 > [!IMPORTANT]
 > **Security & Trust Boundary**

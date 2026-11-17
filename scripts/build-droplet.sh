@@ -320,7 +320,11 @@ stage_clean_distribution() {
     mkdir -p "$tmp_stage"
 
     cp -R "$src_bundle" "$tmp_stage/AETHER.droplet"
-    cp "$PROJECT_ROOT/docs/README-TESTING.md" "$tmp_stage/README-TESTING.md"
+    if [ -f "$PROJECT_ROOT/README-TESTING.md" ]; then
+        cp "$PROJECT_ROOT/README-TESTING.md" "$tmp_stage/README-TESTING.md"
+    elif [ -f "$PROJECT_ROOT/docs/README-TESTING.md" ]; then
+        cp "$PROJECT_ROOT/docs/README-TESTING.md" "$tmp_stage/README-TESTING.md"
+    fi
     find "$tmp_stage" -name ".DS_Store" -delete
 
     validate_droplet_bundle "$tmp_stage/AETHER.droplet"
@@ -416,7 +420,11 @@ EOF
     (cd "$DROPLET_PKG" && "$DROPPYKIT_CLI" validate "${VALIDATE_ARGS[@]+"${VALIDATE_ARGS[@]}"}")
 
     validate_droplet_bundle "$DEFAULT_BUNDLE"
-    cp "$PROJECT_ROOT/docs/README-TESTING.md" "$BUILD_DIR/README-TESTING.md"
+    if [ -f "$PROJECT_ROOT/README-TESTING.md" ]; then
+        cp "$PROJECT_ROOT/README-TESTING.md" "$BUILD_DIR/README-TESTING.md"
+    elif [ -f "$PROJECT_ROOT/docs/README-TESTING.md" ]; then
+        cp "$PROJECT_ROOT/docs/README-TESTING.md" "$BUILD_DIR/README-TESTING.md"
+    fi
     echo "==> Official build & validation succeeded at: $DEFAULT_BUNDLE"
 fi
 

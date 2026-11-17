@@ -285,7 +285,7 @@ struct AetherReleaseHardeningTests {
         let manifest = try JSONSerialization.jsonObject(with: manifestData) as? [String: Any]
         #expect(manifest?["id"] as? String == "aether")
         #expect(manifest?["name"] as? String == "AETHER")
-        #expect(manifest?["version"] as? String == "2.2.0")
+        #expect(manifest?["version"] as? String == "2.3.0")
         #expect((manifest?["summary"] as? String ?? "").count <= 60)
         #expect(manifest?["category"] as? String == "System")
         #expect(manifest?["minAppVersion"] as? String == "16.2.0")
